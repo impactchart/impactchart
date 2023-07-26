@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import LinearRegression
+from xgboost import XGBRegressor
 import pandas as pd
 from shap import Explainer, LinearExplainer
 import shap.maskers
@@ -89,7 +90,11 @@ class ImpactModel(ABC):
 
     def _estimator_impact(self, X: pd.DataFrame, estimator, id) -> pd.DataFrame:
         df = pd.DataFrame(
-            Explainer(estimator, shap.maskers.Independent(X, max_samples=1000))(X).values,
+            Explainer(
+                estimator,
+                masker=shap.maskers.Independent(X, max_samples=1000),
+                algorithm='auto',
+            )(X).values,
             columns=X.columns
         )
         df['estimator'] = id
@@ -123,3 +128,9 @@ class LinearImpactModel(ImpactModel):
 
     def estimator(self, **kwargs) -> BaseEstimator:
         return LinearRegression(**kwargs)
+
+
+class XGBoostImpactModel(ImpactModel):
+
+    def estimator(self, **kwargs) -> BaseEstimator:
+        return XGBRegressor(**kwargs)
