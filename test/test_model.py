@@ -30,7 +30,10 @@ class LinearModelTestCase(unittest.TestCase):
         self._y = self._X['X0'] + 3 * self._X['X2'] - 10 + generator.normal(scale=0.01, size=len(self._X.index))
         self._y.rename('y', inplace=True)
 
-        self._linear = imm.LinearImpactModel(ensemble_size=self._k)
+        self._linear = imm.LinearImpactModel(
+            ensemble_size=self._k,
+            random_state=97,
+        )
 
         self.assertFalse(self._linear.is_fit)
         self._linear.fit(self._X, self._y)
