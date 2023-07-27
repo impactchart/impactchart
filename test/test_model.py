@@ -150,6 +150,7 @@ class LinearModelTestCase(ImpactChartTestCase):
             expected_file = self.expected_dir / png_file_name
             output_file = self.output_dir / png_file_name
 
+            ax.set_ylim(-20, 20)
             ax.grid()
             fig.savefig(output_file)
 
@@ -250,6 +251,7 @@ class XgbTestCase(ImpactChartTestCase):
             expected_file = self.expected_dir / png_file_name
             output_file = self.output_dir / png_file_name
 
+            ax.set_ylim(-1, 1)
             ax.grid()
             fig.savefig(output_file)
 

@@ -131,10 +131,21 @@ class ImpactModel(ABC):
                     X[feature],
                     df_group[feature],
                     '.',
+                    markersize=2,
                     color='lightgrey'
                 )
 
             df_impact.groupby('estimator')[['X_index', feature]].apply(_plot_for_ensemble_member)
+
+            mean_impact = df_impact.groupby('X_index')[feature].mean()
+
+            ax.plot(
+                X[feature],
+                mean_impact,
+                '.',
+                markersize=4,
+                color='darkgreen'
+            )
 
             impacts[feature] = (fig, ax,)
 
