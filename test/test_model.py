@@ -1,16 +1,66 @@
 import unittest
+from pathlib import Path
+from shutil import rmtree
 
 import matplotlib.pyplot as plt
-import pandas as pd
-import impactchart.model as imm
 import numpy as np
+import pandas as pd
+
+import skimage.io
+from skimage.metrics import structural_similarity as ssim
+
+import impactchart.model as imm
 
 
-class LinearModelTestCase(unittest.TestCase):
+class ImpactChartTestCase(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Global set up once."""
+        cls.shapefile_path = (
+            Path(__file__).parent / "data" / "shapefiles" / "cb_2020_us_state_20m"
+        )
+        cls.expected_dir = Path(__file__).parent / "expected"
+
+        # Create a clean output directory
+        cls.output_dir = Path(__file__).parent / "_test_artifacts"
+
+        rmtree(cls.output_dir, ignore_errors=True)
+        cls.output_dir.mkdir(parents=True)
+
+        plt.rcParams["figure.figsize"] = (8, 5)
+
+    def assert_structurally_similar(self, file0: Path, file1: Path, threshold: float = 0.98):
+        """
+        Assert that the images stored in two files are structurally similar.
+
+        Parameters
+        ----------
+        file0
+            An image file
+        file1
+            Another image file
+        threshold
+            Minimum structural similarity threshold.
+
+        Returns
+        -------
+            None
+        """
+        image0 = skimage.io.imread(file0)
+        image1 = skimage.io.imread(file1)
+
+        for ii in range(len(image0[0, 0, :])):
+            similarity = ssim(image0[:, :, ii], image1[:, :, ii])
+
+            self.assertGreater(similarity, threshold)
+
+
+class LinearModelTestCase(ImpactChartTestCase):
 
     def setUp(self) -> None:
-        self._n = 10
-        self._k = 5
+        self._n = 50
+        self._k = 50
 
         generator = np.random.default_rng(17)
         self._X = pd.DataFrame(
@@ -92,8 +142,20 @@ class LinearModelTestCase(unittest.TestCase):
 
         pd.testing.assert_series_equal(y_hat['y_hat'], impact_y_hat, atol=0.05)
 
+    def test_impact_chart(self):
+        for feature in self._X.columns:
+            fig, ax = self._linear.impact_chart(self._X, feature)
 
-class XgbTestCase(unittest.TestCase):
+            png_file_name = f"impact_linear_{feature}.png"
+            expected_file = self.expected_dir / png_file_name
+            output_file = self.output_dir / png_file_name
+
+            ax.grid()
+            fig.savefig(output_file)
+
+            self.assert_structurally_similar(expected_file, output_file)
+
+class XgbTestCase(ImpactChartTestCase):
 
     def setUp(self) -> None:
         self._n = 100
@@ -179,6 +241,19 @@ class XgbTestCase(unittest.TestCase):
         impact_y_hat.name = 'y_hat'
 
         pd.testing.assert_series_equal(y_hat['y_hat'], impact_y_hat.astype('float32'), atol=0.005)
+
+    def test_impact_chart(self):
+        for feature in self._X.columns:
+            fig, ax = self._impact_model.impact_chart(self._X, feature)
+
+            png_file_name = f"impact_xgb_{feature}.png"
+            expected_file = self.expected_dir / png_file_name
+            output_file = self.output_dir / png_file_name
+
+            ax.grid()
+            fig.savefig(output_file)
+
+            self.assert_structurally_similar(expected_file, output_file)
 
 
 if __name__ == '__main__':
