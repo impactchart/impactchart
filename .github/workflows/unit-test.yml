@@ -34,6 +34,8 @@ jobs:
         run: echo "LLVM_CONFIG=${{ env.LLVM_PATH }}/bin/llvm-config" >> $GITHUB_ENV
       - name: Check settings
         run: echo $PATH $LLVM_CONFIG
+      - name: LLVM version
+        run:  $LLVM_CONFIG --version
       # - name: Install llvm
       #   run: sudo apt-get install llvm-10
       #  run: sudo apt-get install apt-show-versions ; sudo apt-show-versions -a llvm ; sudo apt-get install llvm
