@@ -27,7 +27,7 @@ jobs:
         with:
           version: "10.0"
       - name: Where is LLVM?
-        run: ls -l ${{ env.LLVM_PATH }}
+        run: ls -l ${{ env.LLVM_PATH }}/bin
       # - name: Install llvm
       #   run: sudo apt-get install llvm-10
       #  run: sudo apt-get install apt-show-versions ; sudo apt-show-versions -a llvm ; sudo apt-get install llvm
