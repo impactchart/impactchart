@@ -22,8 +22,12 @@ jobs:
       #----------------------------------------------
       #      Install llvm so we can use shap
       #----------------------------------------------
-      - name: Install llvm
-        run: sudo apt-get install llvm-10
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: "10.0"
+      # - name: Install llvm
+      #   run: sudo apt-get install llvm-10
       #  run: sudo apt-get install apt-show-versions ; sudo apt-show-versions -a llvm ; sudo apt-get install llvm
       #----------------------------------------------
       #       check out repo
