@@ -28,6 +28,7 @@ jobs:
         uses: KyleMayes/install-llvm-action@v1
         with:
           version: "10.0"
+          directory: ${{ runner.temp }}/llvm
       - name: ls the bin
         run: ls ${{ env.LLVM_PATH }}/bin
       - name: Add LLVM to PATH
