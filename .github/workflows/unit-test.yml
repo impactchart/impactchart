@@ -23,7 +23,7 @@ jobs:
       #      Install llvm so we can use shap
       #----------------------------------------------
       - name: Install llvm
-        run: sudo apt-get install llvm=10.0.0
+        run: sudo apt-show-versions -a llvm ; sudo apt-get install llvm
       #----------------------------------------------
       #       check out repo
       #----------------------------------------------
