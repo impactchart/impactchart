@@ -22,6 +22,8 @@ jobs:
       #----------------------------------------------
       #      Install llvm so we can use shap
       #----------------------------------------------
+      - name: install ncurses (needed by llvm)
+        run: sudo apt install libncurses5
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@v1
         with:
