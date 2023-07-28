@@ -20,6 +20,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       #----------------------------------------------
+      #      Install llvm so we can use shap
+      #----------------------------------------------
+      - name: Install llvm
+        run: sudo apt-get install llvm
+      #----------------------------------------------
       #       check out repo
       #----------------------------------------------
       - name: Check out repository
