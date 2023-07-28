@@ -6,7 +6,7 @@ authors = ["vengroff <vengroff@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 # Shap 0.42.X is not yet avaialble for OS X due to some
 # lingering issues with numba.
 shap = [

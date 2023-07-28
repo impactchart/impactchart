@@ -48,13 +48,13 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v3
       #----------------------------------------------
-      #      set up python
+      #       set up python
       #----------------------------------------------
       - name: Set up python
         id: setup-python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.10
+          python-version: 3.11
       #----------------------------------------------
       #  -----  install & configure poetry  -----
       #----------------------------------------------
