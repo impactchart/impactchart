@@ -119,7 +119,9 @@ class ImpactModel(ABC):
         return df_impact
 
     def impact_charts(
-        self, X: pd.DataFrame, features: Iterable[str],
+        self,
+        X: pd.DataFrame,
+        features: Iterable[str],
         *,
         markersize: int = 4,
         color: str = "darkgreen",
@@ -128,7 +130,6 @@ class ImpactModel(ABC):
         plot_kwargs: Optional[Dict[str, Any]] = None,
         subplots_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Tuple[plt.Figure, plt.Axes]]:
-
         if plot_kwargs is None:
             plot_kwargs = {}
 
@@ -148,8 +149,12 @@ class ImpactModel(ABC):
                 nonlocal plot_kwargs
 
                 ax.plot(
-                    X[feature], df_group[feature], ".", markersize=ensemble_markersize, color=ensemble_color,
-                    **plot_kwargs
+                    X[feature],
+                    df_group[feature],
+                    ".",
+                    markersize=ensemble_markersize,
+                    color=ensemble_color,
+                    **plot_kwargs,
                 )
                 plot_kwargs = {}
 

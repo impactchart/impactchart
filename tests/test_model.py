@@ -168,12 +168,10 @@ class LinearModelTestCase(ImpactChartTestCase):
                 self._X,
                 feature,
                 markersize=4,
-                color='red',
+                color="red",
                 ensemble_markersize=20,
-                ensemble_color='lightblue',
-                subplots_kwargs=dict(
-                    figsize=(12, 6)
-                )
+                ensemble_color="lightblue",
+                subplots_kwargs=dict(figsize=(12, 6)),
             )
 
             png_file_name = f"impact_linear_styled_{feature}.png"
