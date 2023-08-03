@@ -119,8 +119,23 @@ class ImpactModel(ABC):
         return df_impact
 
     def impact_charts(
-        self, X: pd.DataFrame, features: Iterable[str]
+        self,
+        X: pd.DataFrame,
+        features: Iterable[str],
+        *,
+        markersize: int = 4,
+        color: str = "darkgreen",
+        ensemble_markersize: int = 2,
+        ensemble_color: str = "lightgray",
+        plot_kwargs: Optional[Dict[str, Any]] = None,
+        subplots_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Tuple[plt.Figure, plt.Axes]]:
+        if plot_kwargs is None:
+            plot_kwargs = {}
+
+        if subplots_kwargs is None:
+            subplots_kwargs = {}
+
         df_impact = self.impact(X)
 
         impacts = {}
@@ -128,12 +143,20 @@ class ImpactModel(ABC):
         features = list(features)
 
         for feature in features:
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(**subplots_kwargs)
 
             def _plot_for_ensemble_member(df_group):
+                nonlocal plot_kwargs
+
                 ax.plot(
-                    X[feature], df_group[feature], ".", markersize=2, color="lightgrey"
+                    X[feature],
+                    df_group[feature],
+                    ".",
+                    markersize=ensemble_markersize,
+                    color=ensemble_color,
+                    **plot_kwargs,
                 )
+                plot_kwargs = {}
 
             df_impact.groupby("estimator")[["X_index", feature]].apply(
                 _plot_for_ensemble_member
@@ -141,7 +164,7 @@ class ImpactModel(ABC):
 
             mean_impact = df_impact.groupby("X_index")[feature].mean()
 
-            ax.plot(X[feature], mean_impact, ".", markersize=4, color="darkgreen")
+            ax.plot(X[feature], mean_impact, ".", markersize=markersize, color=color)
 
             impacts[feature] = (
                 fig,
@@ -151,9 +174,27 @@ class ImpactModel(ABC):
         return impacts
 
     def impact_chart(
-        self, X: pd.DataFrame, feature: str
+        self,
+        X: pd.DataFrame,
+        feature: str,
+        *,
+        markersize: int = 4,
+        color: str = "darkgreen",
+        ensemble_markersize: int = 2,
+        ensemble_color: str = "lightgray",
+        plot_kwargs: Optional[Dict[str, Any]] = None,
+        subplots_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Tuple[plt.Figure, plt.Axes]:
-        return self.impact_charts(X, [feature])[feature]
+        return self.impact_charts(
+            X,
+            [feature],
+            markersize=markersize,
+            color=color,
+            ensemble_markersize=ensemble_markersize,
+            ensemble_color=ensemble_color,
+            plot_kwargs=plot_kwargs,
+            subplots_kwargs=subplots_kwargs,
+        )[feature]
 
     @property
     def is_fit(self) -> bool:

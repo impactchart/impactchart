@@ -162,6 +162,28 @@ class LinearModelTestCase(ImpactChartTestCase):
 
             self.assert_structurally_similar(expected_file, output_file)
 
+    def test_styled_impact_chart(self):
+        for feature in self._X.columns:
+            fig, ax = self._linear.impact_chart(
+                self._X,
+                feature,
+                markersize=4,
+                color="red",
+                ensemble_markersize=20,
+                ensemble_color="lightblue",
+                subplots_kwargs=dict(figsize=(12, 6)),
+            )
+
+            png_file_name = f"impact_linear_styled_{feature}.png"
+            expected_file = self.expected_dir / png_file_name
+            output_file = self.output_dir / png_file_name
+
+            ax.set_ylim(-20, 20)
+            ax.grid()
+            fig.savefig(output_file)
+
+            self.assert_structurally_similar(expected_file, output_file)
+
 
 class XgbTestCase(ImpactChartTestCase):
     def setUp(self) -> None:
