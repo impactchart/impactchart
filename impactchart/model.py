@@ -5,9 +5,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import shap.maskers
-from shap import Explainer
+from shap import Explainer, KernelExplainer
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import LinearRegression
+from sklearn.neighbors import KNeighborsRegressor
 from xgboost import XGBRegressor
 
 
@@ -138,6 +139,12 @@ class ImpactModel(ABC):
 
         df_impact = self.impact(X)
 
+        print()
+        print(X)
+        print()
+        print(df_impact)
+        print()
+
         impacts = {}
 
         features = list(features)
@@ -217,3 +224,19 @@ class LinearImpactModel(ImpactModel):
 class XGBoostImpactModel(ImpactModel):
     def estimator(self, **kwargs) -> BaseEstimator:
         return XGBRegressor(**kwargs)
+
+
+class _CallableKNeighborsRegressor(KNeighborsRegressor):
+    def __call__(self, *args, **kwargs):
+        return self.predict(*args, **kwargs)
+
+
+class KnnImpactModel(ImpactModel):
+
+    def estimator(self, **kwargs) -> BaseEstimator:
+        estimator = _CallableKNeighborsRegressor(**kwargs)
+        return estimator
+
+    @property
+    def explainer_algorithm(self) -> str:
+        return "permutation"
