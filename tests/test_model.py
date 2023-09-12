@@ -328,7 +328,7 @@ class KnnTestCase(ImpactChartTestCase):
             expected_file = self.expected_dir / png_file_name
             output_file = self.output_dir / png_file_name
 
-            ax.set_ylim(-200, 200)
+            ax.set_ylim(-250, 250)
             ax.grid()
             fig.savefig(output_file)
 
