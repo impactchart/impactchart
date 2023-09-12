@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import shap.maskers
-from shap import Explainer, KernelExplainer
+from shap import Explainer
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
@@ -139,12 +139,6 @@ class ImpactModel(ABC):
 
         df_impact = self.impact(X)
 
-        print()
-        print(X)
-        print()
-        print(df_impact)
-        print()
-
         impacts = {}
 
         features = list(features)
@@ -155,15 +149,24 @@ class ImpactModel(ABC):
             def _plot_for_ensemble_member(df_group):
                 nonlocal plot_kwargs
 
+                print()
+                print("MMM", feature, df_group[feature].describe())
+                print()
+
+                plot_x = X[feature]
+                plot_y = df_group[feature]
+
                 ax.plot(
-                    X[feature],
-                    df_group[feature],
+                    plot_x,
+                    plot_y,
                     ".",
                     markersize=ensemble_markersize,
                     color=ensemble_color,
                     **plot_kwargs,
                 )
                 plot_kwargs = {}
+
+                ax.set_ylim(-200, 200)
 
             df_impact.groupby("estimator")[["X_index", feature]].apply(
                 _plot_for_ensemble_member
@@ -232,7 +235,6 @@ class _CallableKNeighborsRegressor(KNeighborsRegressor):
 
 
 class KnnImpactModel(ImpactModel):
-
     def estimator(self, **kwargs) -> BaseEstimator:
         estimator = _CallableKNeighborsRegressor(**kwargs)
         return estimator

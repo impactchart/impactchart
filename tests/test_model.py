@@ -293,7 +293,6 @@ class XgbTestCase(ImpactChartTestCase):
 
 
 class KnnTestCase(ImpactChartTestCase):
-
     def setUp(self) -> None:
         self._n = 5
 
@@ -301,16 +300,16 @@ class KnnTestCase(ImpactChartTestCase):
         # around it.
         self._k = 1  # 5
 
+        generator = np.random.default_rng(997)
+
         self._X = pd.DataFrame(
             [[x1, x2] for x1 in range(self._n) for x2 in range(self._n)],
-            columns=['X1', 'X2']
+            columns=["X1", "X2"],
         )
-        self._y = 100 * self._X['X1'] + self._X['X2']
+        self._y = 100 * self._X["X1"] + generator.normal() * self._X["X2"]
 
         self._impact_model = imm.KnnImpactModel(
-            estimator_kwargs=dict(
-                n_neighbors=self._k
-            ),
+            estimator_kwargs=dict(n_neighbors=self._k),
             ensemble_size=2,
         )
 
@@ -321,8 +320,6 @@ class KnnTestCase(ImpactChartTestCase):
 
     def test_knn(self):
         self._impact_model.fit(self._X, self._y)
-        # df_impact = self._impact_model.impact(self._X)
-        # print(df_impact[self._n:2 * self._n])
 
         for feature in self._X.columns:
             fig, ax = self._impact_model.impact_chart(self._X, feature)
@@ -331,11 +328,11 @@ class KnnTestCase(ImpactChartTestCase):
             expected_file = self.expected_dir / png_file_name
             output_file = self.output_dir / png_file_name
 
-            ax.set_ylim(-1, 1)
+            ax.set_ylim(-200, 200)
             ax.grid()
             fig.savefig(output_file)
 
-            # self.assert_structurally_similar(expected_file, output_file)
+            self.assert_structurally_similar(expected_file, output_file)
 
 
 if __name__ == "__main__":
