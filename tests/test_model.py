@@ -292,5 +292,48 @@ class XgbTestCase(ImpactChartTestCase):
             self.assert_structurally_similar(expected_file, output_file)
 
 
+class KnnTestCase(ImpactChartTestCase):
+    def setUp(self) -> None:
+        self._n = 5
+
+        # The point itself and the four at distance 1 in each direction
+        # around it.
+        self._k = 1  # 5
+
+        generator = np.random.default_rng(997)
+
+        self._X = pd.DataFrame(
+            [[x1, x2] for x1 in range(self._n) for x2 in range(self._n)],
+            columns=["X1", "X2"],
+        )
+        self._y = 100 * self._X["X1"] + generator.normal() * self._X["X2"]
+
+        self._impact_model = imm.KnnImpactModel(
+            estimator_kwargs=dict(n_neighbors=self._k),
+            ensemble_size=2,
+        )
+
+    def test_knn_fit(self):
+        self.assertFalse(self._impact_model.is_fit)
+        self._impact_model.fit(self._X, self._y)
+        self.assertTrue(self._impact_model.is_fit)
+
+    def test_knn(self):
+        self._impact_model.fit(self._X, self._y)
+
+        for feature in self._X.columns:
+            fig, ax = self._impact_model.impact_chart(self._X, feature)
+
+            png_file_name = f"impact_knn_{feature}.png"
+            expected_file = self.expected_dir / png_file_name
+            output_file = self.output_dir / png_file_name
+
+            ax.set_ylim(-250, 250)
+            ax.grid()
+            fig.savefig(output_file)
+
+            self.assert_structurally_similar(expected_file, output_file)
+
+
 if __name__ == "__main__":
     unittest.main()
