@@ -229,13 +229,6 @@ class XgbTestCase(ImpactChartTestCase):
         ax = df_intermediate.plot.scatter("X1", "y", figsize=(8, 6))
         ax.grid()
 
-        plt.savefig("/var/tmp/c.png")
-
-        # a = np.max(np.min(10 * (self._X['X1'] - 0.5)  1.0), 0.0)
-        # b = self._X['X0'] * self._X['X3']
-
-        # self._y = a * b
-
     def test_impact(self):
         df_impact = self._impact_model.impact(self._X)
 
