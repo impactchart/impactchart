@@ -56,7 +56,7 @@ class ImpactModel(ABC):
         *,
         ensemble_size: int = 50,
         training_fraction: float = 0.8,
-        random_state: pd.core.common.RandomState = None,
+        random_state: Optional[np.random.RandomState | int] = None,
         estimator_kwargs: Optional[Dict[str, Any]] = None,
     ):
         self._ensemble_size = ensemble_size
