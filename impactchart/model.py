@@ -344,8 +344,6 @@ class ImpactModel(ABC):
                 )
                 plot_kwargs = {}
 
-                ax.set_ylim(-200, 200)
-
             df_impact.groupby("estimator")[["X_index", feature]].apply(
                 _plot_for_ensemble_member
             )
