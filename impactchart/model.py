@@ -327,10 +327,6 @@ class ImpactModel(ABC):
             def _plot_for_ensemble_member(df_group):
                 nonlocal plot_kwargs
 
-                print()
-                print("MMM", feature, df_group[feature].describe())
-                print()
-
                 plot_x = X[feature]
                 plot_y = df_group[feature]
 
