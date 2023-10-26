@@ -3,7 +3,8 @@ This package implements impact charts.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -61,6 +62,7 @@ class ImpactModel(ABC):
     ):
         self._ensemble_size = ensemble_size
         self._training_fraction = training_fraction
+        self._initial_random_state = random_state
         self._random_generator = np.random.default_rng(random_state)
 
         if estimator_kwargs is None:
@@ -70,6 +72,14 @@ class ImpactModel(ABC):
         self._ensembled_estimators = self.ensemble_estimators()
 
         self._X_fit = None
+
+    @property
+    def k(self) -> int:
+        return self._ensemble_size
+
+    @property
+    def initial_random_state(self) -> np.random.RandomState | None:
+        return self._initial_random_state
 
     @abstractmethod
     def estimator(self, **kwargs) -> BaseEstimator:
@@ -271,6 +281,16 @@ class ImpactModel(ABC):
 
         return df_impact
 
+    def _plot_id(self, feature: str, n: int):
+        if isinstance(self._initial_random_state, int):
+            s = f"{self._initial_random_state:08X}"
+        elif self._initial_random_state is None:
+            s = "None"
+        else:
+            s = '???'
+
+        return f"(f = {feature}; n = {n:,.0f}; k = {self.k}; s = {s})"
+
     def impact_charts(
         self,
         X: pd.DataFrame,
@@ -282,6 +302,9 @@ class ImpactModel(ABC):
         ensemble_color: str = "lightgray",
         plot_kwargs: Optional[Dict[str, Any]] = None,
         subplots_kwargs: Optional[Dict[str, Any]] = None,
+        feature_names: Optional[Callable[[str], str] | Mapping[str, str]] = None,
+        y_name: Optional[str] = None,
+        subtitle: Optional[str] = None,
     ) -> Dict[str, Tuple[plt.Figure, plt.Axes]]:
         """
         Generate impact charts for a set of features.
@@ -304,6 +327,13 @@ class ImpactModel(ABC):
             Additional keyword args for matplotlib
         subplots_kwargs
             Additional kwargs for `plt.subplots` call to create the subplots.
+        feature_names
+            A map of function from features to the names to use for them
+            in titles in the chart.
+        y_name
+            A name to use for the output of the model.
+        subtitle
+            A subtitle for the plot.
         Returns
         -------
             A dictionary whose key is the name of the features and whose values
@@ -321,7 +351,19 @@ class ImpactModel(ABC):
 
         features = list(features)
 
+        if feature_names is None:
+            # We got not mapping or function, so just use the feature name.
+            feature_name_func = lambda f: f
+        elif callable(feature_names):
+            # We got a callable
+            feature_name_func = feature_names
+        else:
+            # Expect it to be a map.
+            feature_name_func = lambda f: feature_names[f]
+
         for feature in features:
+            feature_name = feature_name_func(feature)
+
             fig, ax = plt.subplots(**subplots_kwargs)
 
             def _plot_for_ensemble_member(df_group):
@@ -336,6 +378,7 @@ class ImpactModel(ABC):
                     ".",
                     markersize=ensemble_markersize,
                     color=ensemble_color,
+                    label="Ensemble Impact",
                     **plot_kwargs,
                 )
                 plot_kwargs = {}
@@ -346,7 +389,23 @@ class ImpactModel(ABC):
 
             mean_impact = df_impact.groupby("X_index")[feature].mean()
 
-            ax.plot(X[feature], mean_impact, ".", markersize=markersize, color=color)
+            ax.plot(X[feature], mean_impact, ".", markersize=markersize, color=color, label="Mean Impact")
+
+            # Do some basic labels and styling.
+            if y_name is not None:
+                if subtitle is not None:
+                    ax.set_title(f"Impact of {feature_name}\non {y_name}\n{subtitle}")
+                else:
+                    ax.set_title(f"Impact of {feature_name}\non {y_name}")
+                ax.set_ylabel(f"Impact on {y_name}")
+            else:
+                if subtitle is not None:
+                    ax.set_title(f"Impact of {feature_name}\n{subtitle}")
+                else:
+                    ax.set_title(f"Impact of {feature_name}")
+                ax.set_ylabel(f"Impact")
+            ax.set_xlabel(feature_name)
+            ax.grid()
 
             impacts[feature] = (
                 fig,
