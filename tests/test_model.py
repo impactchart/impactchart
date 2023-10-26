@@ -149,37 +149,35 @@ class LinearModelTestCase(ImpactChartTestCase):
         pd.testing.assert_series_equal(y_hat["y_hat"], impact_y_hat, atol=0.05)
 
     def test_impact_chart(self):
-        for feature in self._X.columns:
-            fig, ax = self._linear.impact_chart(self._X, feature)
-
+        charts = self._linear.impact_charts(self._X, self._X.columns)
+        for feature, (fig, ax) in charts.items():
             png_file_name = f"impact_linear_{feature}.png"
             expected_file = self.expected_dir / png_file_name
             output_file = self.output_dir / png_file_name
 
             ax.set_ylim(-20, 20)
-            ax.grid()
             fig.savefig(output_file)
 
             self.assert_structurally_similar(expected_file, output_file)
 
     def test_styled_impact_chart(self):
-        for feature in self._X.columns:
-            fig, ax = self._linear.impact_chart(
-                self._X,
-                feature,
-                markersize=4,
-                color="red",
-                ensemble_markersize=20,
-                ensemble_color="lightblue",
-                subplots_kwargs=dict(figsize=(12, 6)),
-            )
-
+        charts = self._linear.impact_charts(
+            self._X,
+            self._X.columns,
+            markersize=4,
+            color="red",
+            ensemble_markersize=20,
+            ensemble_color="lightblue",
+            subplots_kwargs=dict(figsize=(12, 6)),
+            feature_names={"X0": "Name 0", "X1": "Foo", "X2": "Bar"},
+            y_name="the Y",
+        )
+        for feature, (fig, ax) in charts.items():
             png_file_name = f"impact_linear_styled_{feature}.png"
             expected_file = self.expected_dir / png_file_name
             output_file = self.output_dir / png_file_name
 
             ax.set_ylim(-20, 20)
-            ax.grid()
             fig.savefig(output_file)
 
             self.assert_structurally_similar(expected_file, output_file)
@@ -271,15 +269,18 @@ class XgbTestCase(ImpactChartTestCase):
         )
 
     def test_impact_chart(self):
-        for feature in self._X.columns:
-            fig, ax = self._impact_model.impact_chart(self._X, feature)
+        charts = self._impact_model.impact_charts(
+            self._X,
+            self._X.columns,
+            feature_names=lambda x: f"Name of {x}",
+        )
 
+        for feature, (fig, ax) in charts.items():
             png_file_name = f"impact_xgb_{feature}.png"
             expected_file = self.expected_dir / png_file_name
             output_file = self.output_dir / png_file_name
 
             ax.set_ylim(-1, 1)
-            ax.grid()
             fig.savefig(output_file)
 
             self.assert_structurally_similar(expected_file, output_file)
@@ -314,15 +315,16 @@ class KnnTestCase(ImpactChartTestCase):
     def test_knn(self):
         self._impact_model.fit(self._X, self._y)
 
-        for feature in self._X.columns:
-            fig, ax = self._impact_model.impact_chart(self._X, feature)
+        charts = self._impact_model.impact_charts(
+            self._X, self._X.columns, y_name="Prediction"
+        )
 
+        for feature, (fig, ax) in charts.items():
             png_file_name = f"impact_knn_{feature}.png"
             expected_file = self.expected_dir / png_file_name
             output_file = self.output_dir / png_file_name
 
             ax.set_ylim(-250, 250)
-            ax.grid()
             fig.savefig(output_file)
 
             self.assert_structurally_similar(expected_file, output_file)
