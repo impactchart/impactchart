@@ -287,7 +287,7 @@ class ImpactModel(ABC):
         elif self._initial_random_state is None:
             s = "None"
         else:
-            s = '???'
+            s = "???"
 
         return f"(f = {feature}; n = {n:,.0f}; k = {self.k}; s = {s})"
 
@@ -353,13 +353,16 @@ class ImpactModel(ABC):
 
         if feature_names is None:
             # We got not mapping or function, so just use the feature name.
-            feature_name_func = lambda f: f
+            def feature_name_func(f):
+                return f
+
         elif callable(feature_names):
             # We got a callable
             feature_name_func = feature_names
         else:
             # Expect it to be a map.
-            feature_name_func = lambda f: feature_names[f]
+            def feature_name_func(f):
+                return feature_names[f]
 
         for feature in features:
             feature_name = feature_name_func(feature)
@@ -389,7 +392,14 @@ class ImpactModel(ABC):
 
             mean_impact = df_impact.groupby("X_index")[feature].mean()
 
-            ax.plot(X[feature], mean_impact, ".", markersize=markersize, color=color, label="Mean Impact")
+            ax.plot(
+                X[feature],
+                mean_impact,
+                ".",
+                markersize=markersize,
+                color=color,
+                label="Mean Impact",
+            )
 
             # Do some basic labels and styling.
             if y_name is not None:
@@ -403,7 +413,7 @@ class ImpactModel(ABC):
                     ax.set_title(f"Impact of {feature_name}\n{subtitle}")
                 else:
                     ax.set_title(f"Impact of {feature_name}")
-                ax.set_ylabel(f"Impact")
+                ax.set_ylabel("Impact")
             ax.set_xlabel(feature_name)
             ax.grid()
 

@@ -151,7 +151,6 @@ class LinearModelTestCase(ImpactChartTestCase):
     def test_impact_chart(self):
         charts = self._linear.impact_charts(self._X, self._X.columns)
         for feature, (fig, ax) in charts.items():
-
             png_file_name = f"impact_linear_{feature}.png"
             expected_file = self.expected_dir / png_file_name
             output_file = self.output_dir / png_file_name
@@ -170,7 +169,7 @@ class LinearModelTestCase(ImpactChartTestCase):
             ensemble_markersize=20,
             ensemble_color="lightblue",
             subplots_kwargs=dict(figsize=(12, 6)),
-            feature_names={'X0': "Name 0", 'X1': 'Foo', 'X2': 'Bar'},
+            feature_names={"X0": "Name 0", "X1": "Foo", "X2": "Bar"},
             y_name="the Y",
         )
         for feature, (fig, ax) in charts.items():
@@ -273,7 +272,7 @@ class XgbTestCase(ImpactChartTestCase):
         charts = self._impact_model.impact_charts(
             self._X,
             self._X.columns,
-            feature_names=lambda x: f'Name of {x}',
+            feature_names=lambda x: f"Name of {x}",
         )
 
         for feature, (fig, ax) in charts.items():
@@ -316,7 +315,9 @@ class KnnTestCase(ImpactChartTestCase):
     def test_knn(self):
         self._impact_model.fit(self._X, self._y)
 
-        charts = self._impact_model.impact_charts(self._X, self._X.columns, y_name="Prediction")
+        charts = self._impact_model.impact_charts(
+            self._X, self._X.columns, y_name="Prediction"
+        )
 
         for feature, (fig, ax) in charts.items():
             png_file_name = f"impact_knn_{feature}.png"
