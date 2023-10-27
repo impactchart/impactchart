@@ -347,6 +347,17 @@ class ImpactModel(ABC):
 
         df_impact = self.impact(X)
 
+        # We want to scale the y axis of all of the charts the same,
+        # based on the global min and max impact, so we can easily
+        # compare them visually.
+        max_impact = df_impact[features].max(axis="columns").max(axis="rows")
+        min_impact = df_impact[features].min(axis="columns").min(axis="rows")
+
+        impact_span = max_impact - min_impact
+
+        max_impact = max_impact + 0.05 * impact_span
+        min_impact = min_impact - 0.05 * impact_span
+
         impacts = {}
 
         features = list(features)
@@ -402,6 +413,8 @@ class ImpactModel(ABC):
             )
 
             # Do some basic labels and styling.
+            ax.set_ylim(min_impact, max_impact)
+
             if y_name is not None:
                 if subtitle is not None:
                     ax.set_title(f"Impact of {feature_name}\non {y_name}\n{subtitle}")
