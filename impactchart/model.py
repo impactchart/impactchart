@@ -376,12 +376,16 @@ class ImpactModel(ABC):
                 return feature_names[f]
 
         for feature in features:
+            # Only label the first series with ensemble
+            # impact so the legend stays just two entries.
+            ensemble_impact_label = "Impact of Individual Models"
+
             feature_name = feature_name_func(feature)
 
             fig, ax = plt.subplots(**subplots_kwargs)
 
             def _plot_for_ensemble_member(df_group):
-                nonlocal plot_kwargs
+                nonlocal plot_kwargs, ensemble_impact_label
 
                 plot_x = X[feature]
                 plot_y = df_group[feature]
@@ -392,10 +396,11 @@ class ImpactModel(ABC):
                     ".",
                     markersize=ensemble_markersize,
                     color=ensemble_color,
-                    label="Ensemble Impact",
+                    label=ensemble_impact_label,
                     **plot_kwargs,
                 )
                 plot_kwargs = {}
+                ensemble_impact_label = None
 
             df_impact.groupby("estimator")[["X_index", feature]].apply(
                 _plot_for_ensemble_member
@@ -429,6 +434,9 @@ class ImpactModel(ABC):
                 ax.set_ylabel("Impact")
             ax.set_xlabel(feature_name)
             ax.grid()
+
+            for handle in ax.legend().legend_handles:
+                handle._sizes = [25]
 
             impacts[feature] = (
                 fig,
