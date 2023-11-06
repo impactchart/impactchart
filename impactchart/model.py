@@ -73,6 +73,10 @@ class ImpactModel(ABC):
 
         self._X_fit = None
 
+        # We will cache the impact here since it can be expensive
+        # to compute.
+        self._df_impact = None
+
     @property
     def k(self) -> int:
         return self._ensemble_size
@@ -271,15 +275,45 @@ class ImpactModel(ABC):
             column. The number of rows in the number of rows in X times the number of
             estimators.
         """
-        df_impact = pd.concat(
-            self._estimator_impact(X, estimator, ii)
-            for ii, estimator in enumerate(self._ensembled_estimators)
+        if self._df_impact is None:
+            df_impact = pd.concat(
+                self._estimator_impact(X, estimator, ii)
+                for ii, estimator in enumerate(self._ensembled_estimators)
+            )
+
+            df_impact = df_impact.reset_index(names="X_index")
+            self._df_impact = df_impact[["estimator", "X_index"] + list(X.columns)]
+
+        return self._df_impact
+
+    def bucketed_impact(
+        self, X: pd.DataFrame, feature: str, buckets: int = 10
+    ) -> pd.DataFrame:
+        df_impact = self.impact(X)
+
+        df_mean_impact = (
+            df_impact.groupby("X_index")[[feature]]
+            .mean()
+            .rename({feature: "impact"}, axis="columns")
         )
 
-        df_impact = df_impact.reset_index(names="X_index")
-        df_impact = df_impact[["estimator", "X_index"] + list(X.columns)]
+        df_value_and_mean_impact = X[[feature]].join(df_mean_impact)
 
-        return df_impact
+        df_value_and_mean_impact.sort_values(by=feature, inplace=True)
+
+        n = len(df_value_and_mean_impact.index)
+
+        df_value_and_mean_impact["bucket"] = [ii for ii in range(n)]
+
+        df_value_and_mean_impact["bucket"] = (
+            df_value_and_mean_impact["bucket"] // (n * 1.0 / buckets)
+        ).astype(int)
+
+        df_buckets = df_value_and_mean_impact.groupby("bucket").agg(
+            {feature: "max", "impact": "mean"}
+        )
+
+        return df_buckets
 
     def _plot_id(self, feature: str, n: int):
         if isinstance(self._initial_random_state, int):
