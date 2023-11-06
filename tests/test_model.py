@@ -182,6 +182,18 @@ class LinearModelTestCase(ImpactChartTestCase):
 
             self.assert_structurally_similar(expected_file, output_file)
 
+    def test_bucketed_impact(self):
+        df_bucketed = self._linear.bucketed_impact(self._X, "X0")
+
+        self.assertEqual(10, len(df_bucketed.index))
+
+        # Buckets should be monotonically increasing in both the
+        # X0 value that is the top and the average impact.
+
+        df_steps = df_bucketed.rolling(2).apply(lambda b: b[1] - b[0], raw=True)
+
+        self.assertTrue((df_steps.iloc[1:] > 0).all().all())
+
 
 class XgbTestCase(ImpactChartTestCase):
     def setUp(self) -> None:
