@@ -437,7 +437,7 @@ class ImpactModel(ABC):
 
             for handle in ax.legend().legend_handles:
                 handle._sizes = [25]
-                
+
             impacts[feature] = (
                 fig,
                 ax,
