@@ -6,7 +6,7 @@ import sys
 from typing import Any, Dict, Iterable, Optional
 from logging import getLogger
 
-from argparse import ArgumentParser, BooleanOptionalAction
+from argparse import ArgumentParser
 
 from logargparser import LoggingArgumentParser
 
@@ -24,10 +24,10 @@ logger = getLogger(__name__)
 
 
 def optimize_xgb(
-        df: pd.DataFrame,
-        x_cols: Iterable[str],
-        y_col: str,
-        w_col: Optional[str] = None,
+    df: pd.DataFrame,
+    x_cols: Iterable[str],
+    y_col: str,
+    w_col: Optional[str] = None,
 ) -> Dict[str, Any]:
     reg_xgb = xgboost.XGBRegressor()
 
@@ -72,10 +72,10 @@ def optimize_xgb(
 
 
 def linreg(
-        df: pd.DataFrame,
-        x_cols: Iterable[str],
-        y_col: str,
-        w_col: Optional[str] = None,
+    df: pd.DataFrame,
+    x_cols: Iterable[str],
+    y_col: str,
+    w_col: Optional[str] = None,
 ) -> Dict[str, Any]:
     regressor = LinearRegression()
 
@@ -149,15 +149,13 @@ def main():
         description="Choose one of the following commands.",
     )
 
+    parser.add_argument("--dry-run", action="store_true")
+
     optimize_parser = subparsers.add_parser(
         "optimize", help="Optimize hyperparameters for a given data set."
     )
 
-    plot_parser = subparsers.add_parser(
-        "plot", help="Generate an impact chart."
-    )
-
-    parser.add_argument("--dry-run", action="store_true")
+    plot_parser = subparsers.add_parser("plot", help="Generate an impact chart.")
 
     optimize_parser.add_argument(
         "-o", "--output", required=True, type=str, help="Output yaml file."
@@ -169,7 +167,7 @@ def main():
         type=str,
         nargs="+",
         required=True,
-        help="X columns (features) for fitting the models."
+        help="X columns (features) for fitting the models.",
     )
 
     optimize_parser.add_argument(
@@ -187,7 +185,13 @@ def main():
         help="Weight column.",
     )
 
-    optimize_parser.add_argument("data", help="Input data file. Typically from select.py.")
+    optimize_parser.add_argument(
+        "data", help="Input data file. Typically from select.py."
+    )
+
+    plot_parser.add_argument(
+        "-o", "--output", required=True, type=str, help="Output plot file."
+    )
 
     args = parser.parse_args()
 
@@ -199,5 +203,5 @@ def main():
         plot(args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
