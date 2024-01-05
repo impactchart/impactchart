@@ -3,7 +3,7 @@
 
 import sys
 
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Mapping, Optional
 from logging import getLogger
 
 from argparse import ArgumentParser
@@ -34,6 +34,7 @@ def optimize_xgb(
     x_cols: Iterable[str],
     y_col: str,
     w_col: Optional[str] = None,
+    random_state: Optional[int] = 17,
 ) -> Dict[str, Any]:
     logger.info("Optimizing the XBG model.")
 
@@ -54,7 +55,7 @@ def optimize_xgb(
         error_score=0,
         n_jobs=-1,
         verbose=1,
-        random_state=17,
+        random_state=random_state,
     )
 
     X = df[list(x_cols)]
@@ -126,7 +127,7 @@ def optimize(args):
         f"Range: {df[y_col].min()} - {df[y_col].max()}; mean: {df[y_col].mean()}"
     )
     if not args.dry_run:
-        xgb_params = optimize_xgb(df, x_cols, y_col, w_col=w_col)
+        xgb_params = optimize_xgb(df, x_cols, y_col, w_col=w_col, random_state=args.seed)
 
         logger.info(f"Writing to output file `{output_path}`")
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -168,6 +169,9 @@ def plot_impact_charts(
     linreg: bool = False,
     linreg_coefs: Optional[Iterable[float]] = None,
     linreg_intercept: Optional[float] = None,
+    feature_names: Optional[Mapping[str, str]] = None,
+    y_name: Optional[str] = None,
+    subtitle: Optional[str] = None,
 ):
     if linreg:
         reg_linreg = _linreg_from_coefficients(linreg_coefs, linreg_intercept)
@@ -179,9 +183,9 @@ def plot_impact_charts(
         subplots_kwargs=dict(
             figsize=(12, 8),
         ),
-        # feature_names=,
-        y_name="Y Name",
-        subtitle="Subtitle",
+        feature_names=feature_names,
+        y_name=y_name,
+        subtitle=subtitle,
     )
     logger.info("Fitting complete.")
 
@@ -259,13 +263,22 @@ def plot(args):
         linreg_coefs = None
         linreg_intercept = None
 
-    X = df[args.X_columns]
+    x_col_args = args.X_columns
+
+    x_cols = [col.split(":")[0] for col in x_col_args]
+
+    feature_names = {}
+    for col in x_col_args:
+        col_and_name = col.split(":")
+        if len(col_and_name) > 1:
+            feature_names[col_and_name[0]] = col_and_name[1]
+
+    X = df[x_cols]
     y = df[args.y_column]
     w = df[args.w_column]
 
-    # TODO - override k and seed with args.
-    k = 50
-    seed = 0x3423CDF1
+    k = args.k
+    seed = int(args.seed, 0)
 
     impact_model = XGBoostImpactModel(
         ensemble_size=k, random_state=seed, estimator_kwargs=xgb_params
@@ -283,6 +296,9 @@ def plot(args):
         linreg=args.linreg,
         linreg_coefs=linreg_coefs,
         linreg_intercept=linreg_intercept,
+        feature_names=feature_names,
+        y_name=args.y_name,
+        subtitle=args.subtitle,
     )
 
 
@@ -330,6 +346,8 @@ def main():
         "optimize", help="Optimize hyperparameters for a given data set."
     )
 
+    optimize_parser.add_argument("-S", "--seed", type=str, default="17")
+
     plot_parser = subparsers.add_parser("plot", help="Generate an impact chart.")
 
     add_data_arguments(optimize_parser)
@@ -352,6 +370,12 @@ def main():
     )
 
     plot_parser.add_argument("--linreg", action="store_true")
+
+    plot_parser.add_argument("--subtitle", type=str, help="Subtitle for the plot.")
+    plot_parser.add_argument("--y-name", type=str, help="Name for the y axis.")
+
+    plot_parser.add_argument("-k", type=int, default=50)
+    plot_parser.add_argument("-S", "--seed", type=str, default="0x3423CDF1")
 
     args = parser.parse_args()
 
