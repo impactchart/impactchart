@@ -127,7 +127,9 @@ def optimize(args):
         f"Range: {df[y_col].min()} - {df[y_col].max()}; mean: {df[y_col].mean()}"
     )
     if not args.dry_run:
-        xgb_params = optimize_xgb(df, x_cols, y_col, w_col=w_col, random_state=args.seed)
+        xgb_params = optimize_xgb(
+            df, x_cols, y_col, w_col=w_col, random_state=args.seed
+        )
 
         logger.info(f"Writing to output file `{output_path}`")
         output_path.parent.mkdir(parents=True, exist_ok=True)
