@@ -110,9 +110,7 @@ def linreg(
 def optimize(args):
     data_path = Path(args.data)
     output_path = Path(args.output)
-    df = pd.read_csv(
-        data_path, header=0, dtype={"STATE": str, "COUNTY": str, "TRACT": str}
-    )
+    df = read_and_filter_data(data_path, args.filter)
     x_cols = args.X_columns
     y_col = args.y_column
     # Weigh by total renters.
@@ -127,8 +125,9 @@ def optimize(args):
         f"Range: {df[y_col].min()} - {df[y_col].max()}; mean: {df[y_col].mean()}"
     )
     if not args.dry_run:
+        seed = int(args.seed, 0)
         xgb_params = optimize_xgb(
-            df, x_cols, y_col, w_col=w_col, random_state=args.seed
+            df, x_cols, y_col, w_col=w_col, random_state=seed
         )
 
         logger.info(f"Writing to output file `{output_path}`")
@@ -146,6 +145,24 @@ def optimize(args):
         }
         with open(output_path, "w") as f:
             yaml.dump(params, f, sort_keys=True)
+
+
+def read_and_filter_data(data_path, filters: Iterable[str]):
+    """Read and filter the data."""
+    df = pd.read_csv(
+        data_path, header=0, dtype={"STATE": str, "COUNTY": str, "TRACT": str}
+    )
+
+    for f in filters:
+        col, value = f.split("=")
+
+        logger.info(f"Filtering {col} to equal {value}")
+
+        df = df[df[col] == value]
+
+        logger.info(f"Remaining rows: {len(df.index)}")
+
+    return df
 
 
 def _linreg_from_coefficients(coef, intercept):
@@ -174,6 +191,8 @@ def plot_impact_charts(
     feature_names: Optional[Mapping[str, str]] = None,
     y_name: Optional[str] = None,
     subtitle: Optional[str] = None,
+    filename_prefix: Optional[str] = None,
+    filename_suffix: Optional[str] = None,
 ):
     if linreg:
         reg_linreg = _linreg_from_coefficients(linreg_coefs, linreg_intercept)
@@ -194,6 +213,11 @@ def plot_impact_charts(
     dollar_formatter = FuncFormatter(
         lambda d, pos: f"\\${d:,.0f}" if d >= 0 else f"(\\${-d:,.0f})"
     )
+
+    if filename_prefix is None:
+        filename_prefix = ""
+    if filename_suffix is None:
+        filename_suffix = ""
 
     for feature, (fig, ax) in impact_charts.items():
         logger.info(f"Plotting {feature}")
@@ -243,15 +267,13 @@ def plot_impact_charts(
         ax.grid(visible=True)
 
         logger.info(f"Saving impact chart for {feature}.")
-        fig.savefig(output_path / f"{feature}.png")
+        fig.savefig(output_path / f"{filename_prefix}{feature}{filename_suffix}.png")
 
 
 def plot(args):
     data_path = Path(args.data)
 
-    df = pd.read_csv(
-        data_path, header=0, dtype={"STATE": str, "COUNTY": str, "TRACT": str}
-    )
+    df = read_and_filter_data(data_path, args.filter)
 
     with open(args.parameters) as f:
         param_file_contents = yaml.full_load(f)
@@ -289,6 +311,11 @@ def plot(args):
 
     output_path = Path(args.output)
 
+    if len(args.filter):
+        suffix = "_" + '-'.join(args.filter)
+    else:
+        suffix = None
+
     plot_impact_charts(
         impact_model,
         X,
@@ -301,6 +328,7 @@ def plot(args):
         feature_names=feature_names,
         y_name=args.y_name,
         subtitle=args.subtitle,
+        filename_suffix=suffix,
     )
 
 
@@ -329,11 +357,18 @@ def add_data_arguments(parser) -> None:
         help="Weight column.",
     )
 
+    parser.add_argument(
+        "-f",
+        "--filter",
+        type=str,
+        nargs="*"
+    )
+
     parser.add_argument("data", help="Input data file. Typically from select.py.")
 
 
 def main():
-    parser = LoggingArgumentParser(logger, prog="censusdis")
+    parser = LoggingArgumentParser(logger, prog="impactchart")
 
     subparsers = parser.add_subparsers(
         parser_class=ArgumentParser,
