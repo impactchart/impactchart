@@ -110,20 +110,15 @@ def linreg(
 def optimize(args):
     data_path = Path(args.data)
     output_path = Path(args.output)
-    df = read_and_filter_data(data_path, args.filter)
-    x_cols = args.X_columns
+
     y_col = args.y_column
+
+    df = read_and_filter_data(data_path, y_col, args.filter)
+
+    x_cols = args.X_columns
     # Weigh by total renters.
     w_col = args.w_column
-    logger.info(f"Input shape: {df.shape}")
-    df = df.dropna(subset=[y_col])
-    logger.info(f"Shape after dropna: {df.shape}")
-    if len(df.index) == 0:
-        logger.warning(f"After removing nan from {y_col}, no data is left.")
-        sys.exit(1)
-    logger.info(
-        f"Range: {df[y_col].min()} - {df[y_col].max()}; mean: {df[y_col].mean()}"
-    )
+
     if not args.dry_run:
         seed = int(args.seed, 0)
         xgb_params = optimize_xgb(
@@ -147,11 +142,19 @@ def optimize(args):
             yaml.dump(params, f, sort_keys=True)
 
 
-def read_and_filter_data(data_path, filters: Iterable[str]):
+def read_and_filter_data(data_path, y_col: str, filters: Iterable[str]):
     """Read and filter the data."""
+    filter_names = [f.split("=")[0] for f in filters]
+    
+    str_col_types = {
+        col: str for col in set(["STATE", "COUNTY", "TRACT"] + filter_names)
+    }
+    
     df = pd.read_csv(
-        data_path, header=0, dtype={"STATE": str, "COUNTY": str, "TRACT": str}
+        data_path, header=0, dtype=str_col_types
     )
+
+    logger.info(f"Initial rows: {len(df.index)}")
 
     for f in filters:
         col, value = f.split("=")
@@ -161,6 +164,15 @@ def read_and_filter_data(data_path, filters: Iterable[str]):
         df = df[df[col] == value]
 
         logger.info(f"Remaining rows: {len(df.index)}")
+
+    df = df.dropna(subset=[y_col])
+    logger.info(f"Shape after dropna: {df.shape}")
+    if len(df.index) == 0:
+        logger.warning(f"After removing nan from {y_col}, no data is left.")
+        sys.exit(1)
+    logger.info(
+        f"Range: {df[y_col].min()} - {df[y_col].max()}; mean: {df[y_col].mean()}"
+    )
 
     return df
 
@@ -273,7 +285,7 @@ def plot_impact_charts(
 def plot(args):
     data_path = Path(args.data)
 
-    df = read_and_filter_data(data_path, args.filter)
+    df = read_and_filter_data(data_path, args.y_column, args.filter)
 
     with open(args.parameters) as f:
         param_file_contents = yaml.full_load(f)
@@ -364,7 +376,7 @@ def add_data_arguments(parser) -> None:
         nargs="*"
     )
 
-    parser.add_argument("data", help="Input data file. Typically from select.py.")
+    parser.add_argument("data", help="Input data file.")
 
 
 def main():
