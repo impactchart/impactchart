@@ -149,7 +149,7 @@ def read_and_filter_data(data_path, y_col: str, filters: Iterable[str]):
     str_col_types = {
         col: str for col in set(["STATE", "COUNTY", "TRACT"] + filter_names)
     }
-    
+
     df = pd.read_csv(
         data_path, header=0, dtype=str_col_types
     )
@@ -226,6 +226,10 @@ def plot_impact_charts(
         lambda d, pos: f"\\${d:,.0f}" if d >= 0 else f"(\\${-d:,.0f})"
     )
 
+    comma_formatter = FuncFormatter(
+        lambda d, pos: f"{d:,.0f}"
+    )
+
     if filename_prefix is None:
         filename_prefix = ""
     if filename_suffix is None:
@@ -272,9 +276,11 @@ def plot_impact_charts(
         if col_is_fractional:
             ax.xaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
             ax.set_xlim(-0.05, 1.05)
-        else:
+        elif "Income" in feature_names[feature]:
             ax.xaxis.set_major_formatter(dollar_formatter)
             ax.set_xlim(-5_000, max(10_000, df_one_feature[feature].max()) * 1.05)
+        else:
+            ax.xaxis.set_major_formatter(comma_formatter)
 
         ax.grid(visible=True)
 
@@ -311,8 +317,11 @@ def plot(args):
 
     X = df[x_cols]
     y = df[args.y_column]
-    w = df[args.w_column]
-
+    if args.w_column is not None:
+        w = df[args.w_column]
+    else:
+        w = None
+        
     k = args.k
     seed = int(args.seed, 0)
 
@@ -323,10 +332,7 @@ def plot(args):
 
     output_path = Path(args.output)
 
-    if len(args.filter):
-        suffix = "_" + '-'.join(args.filter)
-    else:
-        suffix = None
+    suffix = None
 
     plot_impact_charts(
         impact_model,
