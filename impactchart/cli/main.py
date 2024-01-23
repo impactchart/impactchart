@@ -34,6 +34,8 @@ def optimize_xgb(
     x_cols: Iterable[str],
     y_col: str,
     w_col: Optional[str] = None,
+    *,
+    scoring: Optional[str] = None,
     random_state: Optional[int] = 17,
 ) -> Dict[str, Any]:
     logger.info("Optimizing the XBG model.")
@@ -55,6 +57,7 @@ def optimize_xgb(
         error_score=0,
         n_jobs=-1,
         verbose=1,
+        scoring=scoring,
         random_state=random_state,
     )
 
@@ -122,7 +125,7 @@ def optimize(args):
     if not args.dry_run:
         seed = int(args.seed, 0)
         xgb_params = optimize_xgb(
-            df, x_cols, y_col, w_col=w_col, random_state=seed
+            df, x_cols, y_col, w_col=w_col, scoring=args.scoring, random_state=seed
         )
 
         logger.info(f"Writing to output file `{output_path}`")
@@ -205,6 +208,10 @@ def plot_impact_charts(
     subtitle: Optional[str] = None,
     filename_prefix: Optional[str] = None,
     filename_suffix: Optional[str] = None,
+    xmin: Optional[float] = None,
+    xmax: Optional[float] = None,
+    ymin: Optional[float] = None,
+    ymax: Optional[float] = None,
 ):
     if linreg:
         reg_linreg = _linreg_from_coefficients(linreg_coefs, linreg_intercept)
@@ -282,6 +289,11 @@ def plot_impact_charts(
         else:
             ax.xaxis.set_major_formatter(comma_formatter)
 
+        if xmin is not None or xmax is not None:
+            ax.set_xlim(left=xmin, right=xmax)
+        if ymin is not None or ymax is not None:
+            ax.set_ylim(bottom=ymin, top=ymax)
+
         ax.grid(visible=True)
 
         logger.info(f"Saving impact chart for {feature}.")
@@ -347,6 +359,10 @@ def plot(args):
         y_name=args.y_name,
         subtitle=args.subtitle,
         filename_suffix=suffix,
+        xmin=args.xmin,
+        xmax=args.xmax,
+        ymin=args.ymin,
+        ymax=args.ymax,
     )
 
 
@@ -401,6 +417,10 @@ def main():
         "optimize", help="Optimize hyperparameters for a given data set."
     )
 
+    optimize_parser.add_argument(
+        "--scoring",
+        type=str,
+        help="Scoring method to use when optimizing. See https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter")
     optimize_parser.add_argument("-S", "--seed", type=str, default="17")
 
     plot_parser = subparsers.add_parser("plot", help="Generate an impact chart.")
@@ -431,6 +451,12 @@ def main():
 
     plot_parser.add_argument("-k", type=int, default=50)
     plot_parser.add_argument("-S", "--seed", type=str, default="0x3423CDF1")
+
+    plot_parser.add_argument("--xmin", type=float, help="Min value on the x axis.")
+    plot_parser.add_argument("--xmax", type=float, help="Max value on the x axis.")
+
+    plot_parser.add_argument("--ymin", type=float, help="Min value on the y axis.")
+    plot_parser.add_argument("--ymax", type=float, help="Max value on the y axis.")
 
     args = parser.parse_args()
 
