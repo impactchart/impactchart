@@ -148,14 +148,12 @@ def optimize(args):
 def read_and_filter_data(data_path, y_col: str, filters: Iterable[str]):
     """Read and filter the data."""
     filter_names = [f.split("=")[0] for f in filters]
-    
+
     str_col_types = {
         col: str for col in set(["STATE", "COUNTY", "TRACT"] + filter_names)
     }
 
-    df = pd.read_csv(
-        data_path, header=0, dtype=str_col_types
-    )
+    df = pd.read_csv(data_path, header=0, dtype=str_col_types)
 
     logger.info(f"Initial rows: {len(df.index)}")
 
@@ -233,9 +231,7 @@ def plot_impact_charts(
         lambda d, pos: f"\\${d:,.0f}" if d >= 0 else f"(\\${-d:,.0f})"
     )
 
-    comma_formatter = FuncFormatter(
-        lambda d, pos: f"{d:,.0f}"
-    )
+    comma_formatter = FuncFormatter(lambda d, pos: f"{d:,.0f}")
 
     if filename_prefix is None:
         filename_prefix = ""
@@ -333,7 +329,7 @@ def plot(args):
         w = df[args.w_column]
     else:
         w = None
-        
+
     k = args.k
     seed = int(args.seed, 0)
 
@@ -391,12 +387,7 @@ def add_data_arguments(parser) -> None:
         help="Weight column.",
     )
 
-    parser.add_argument(
-        "-f",
-        "--filter",
-        type=str,
-        nargs="*"
-    )
+    parser.add_argument("-f", "--filter", type=str, nargs="*")
 
     parser.add_argument("data", help="Input data file.")
 
@@ -420,7 +411,9 @@ def main():
     optimize_parser.add_argument(
         "--scoring",
         type=str,
-        help="Scoring method to use when optimizing. See https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter")
+        help="Scoring method to use when optimizing."
+        "See https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter",
+    )
     optimize_parser.add_argument("-S", "--seed", type=str, default="17")
 
     plot_parser = subparsers.add_parser("plot", help="Generate an impact chart.")
