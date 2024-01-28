@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "impactchart"
-version = "0.1.12"
+version = "0.2.0"
 description = ""
 authors = ["vengroff <vengroff@gmail.com>"]
 readme = "README.md"
