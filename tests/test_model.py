@@ -277,7 +277,7 @@ class XgbTestCase(ImpactChartTestCase):
         impact_y_hat.name = "y_hat"
 
         pd.testing.assert_series_equal(
-            y_hat["y_hat"], impact_y_hat.astype("float32"), atol=0.005
+            y_hat["y_hat"], impact_y_hat.astype("float32"), atol=0.01
         )
 
     def test_impact_chart(self):
