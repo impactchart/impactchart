@@ -6,7 +6,7 @@ import sys
 from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 from logging import getLogger
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 
 from logargparser import LoggingArgumentParser
 
@@ -132,6 +132,18 @@ def _split_on_colon(variable_name: str) -> Tuple[str, str]:
 
 
 def optimize(args):
+    """
+    Implements the optimize command.
+
+    Parameters
+    ----------
+    args
+        Arguments parsed from the command line.
+
+    Returns
+    -------
+        None
+    """
     data_path = Path(args.data)
     output_path = Path(args.output)
 
@@ -340,7 +352,19 @@ def plot_impact_charts(
         fig.savefig(output_path / f"{filename_prefix}{feature}{filename_suffix}.png")
 
 
-def plot(args):
+def plot(args: Namespace) -> None:
+    """
+    Implements the plot command.
+
+    Parameters
+    ----------
+    args
+        Arguments parsed from the command line.
+
+    Returns
+    -------
+        None
+    """
     with open(args.parameters) as f:
         param_file_contents = yaml.full_load(f)
 
