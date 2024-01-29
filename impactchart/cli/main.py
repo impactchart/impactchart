@@ -3,7 +3,7 @@
 
 import sys
 
-from typing import Any, Dict, Iterable, Mapping, Optional
+from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 from logging import getLogger
 
 from argparse import ArgumentParser
@@ -93,6 +93,9 @@ def linreg(
 ) -> Dict[str, Any]:
     regressor = LinearRegression()
 
+    logger.info("Fitting linear regression.")
+    logger.info(f"Shape of df: {df.shape}")
+
     if w_col is None:
         model = regressor.fit(df[x_cols], df[y_col])
         score = regressor.score(df[x_cols], df[y_col])
@@ -110,17 +113,42 @@ def linreg(
     }
 
 
+def _split_on_colon(variable_name: str) -> Tuple[str, str]:
+    """
+    Split a variable name on a colon, if present.
+
+    Parameters
+    ----------
+    variable_name
+        Name of the variable to split.
+    Returns
+    -------
+        tuple of name and human readable string from after the colon if present.
+    """
+    var_and_name = variable_name.split(":")
+    return var_and_name[0], (
+        var_and_name[1] if len(var_and_name) > 1 else var_and_name[0]
+    )
+
+
 def optimize(args):
     data_path = Path(args.data)
     output_path = Path(args.output)
 
-    y_col = args.y_column
+    # Drop any label after a ':'.
+    y_col, y_name = _split_on_colon(args.y_column)
 
     df = read_and_filter_data(data_path, y_col, args.filter)
 
-    x_cols = args.X_columns
-    # Weigh by total renters.
-    w_col = args.w_column
+    x_col_args = args.X_columns
+    x_cols, x_names = [
+        list(t) for t in zip(*[_split_on_colon(col) for col in x_col_args])
+    ]
+
+    # Weigh by weight column.
+    w_col, w_name = (
+        _split_on_colon(args.w_column) if args.w_column is not None else (None, None)
+    )
 
     if not args.dry_run:
         seed = int(args.seed, 0)
@@ -132,21 +160,37 @@ def optimize(args):
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"All X shape: {df.shape}")
-        df = df.dropna(subset=x_cols)
+        df = df.dropna(subset=x_cols + [y_col])
+        if w_col is not None:
+            df = df.dropna(subset=[w_col])
         logger.info(f"Dropna X shape: {df.shape}")
 
-        linreg_params = linreg(df, x_cols, y_col)
+        linreg_params = linreg(df, x_cols, y_col, w_col)
+
+        features = [{col: name} for col, name in zip(x_cols, x_names)]
+        target = {y_col: y_name}
 
         params = {
+            "features": features,
+            "target": target,
             "linreg": linreg_params,
             "xgb": xgb_params,
         }
+
+        if w_col is not None:
+            params["weight"] = {w_col: w_name}
+
         with open(output_path, "w") as f:
             yaml.dump(params, f, sort_keys=True)
 
 
-def read_and_filter_data(data_path, y_col: str, filters: Iterable[str]):
+def read_and_filter_data(
+    data_path, y_col: str, filters: Optional[Iterable[str]] = None
+):
     """Read and filter the data."""
+    if filters is None:
+        filters = []
+
     filter_names = [f.split("=")[0] for f in filters]
 
     str_col_types = {
@@ -297,12 +341,20 @@ def plot_impact_charts(
 
 
 def plot(args):
-    data_path = Path(args.data)
-
-    df = read_and_filter_data(data_path, args.y_column, args.filter)
-
     with open(args.parameters) as f:
         param_file_contents = yaml.full_load(f)
+
+    y_col, y_name = list(param_file_contents["target"].items())[0]
+
+    feature_names = param_file_contents["features"]
+    x_cols = [list(feature_dict.keys())[0] for feature_dict in feature_names]
+    feature_dict = {}
+    for d in feature_names:
+        feature_dict |= d
+
+    data_path = Path(args.data)
+
+    df = read_and_filter_data(data_path, y_col, args.filter)
 
     xgb_params = param_file_contents["xgb"]["params"]
 
@@ -313,20 +365,12 @@ def plot(args):
         linreg_coefs = None
         linreg_intercept = None
 
-    x_col_args = args.X_columns
-
-    x_cols = [col.split(":")[0] for col in x_col_args]
-
-    feature_names = {}
-    for col in x_col_args:
-        col_and_name = col.split(":")
-        if len(col_and_name) > 1:
-            feature_names[col_and_name[0]] = col_and_name[1]
-
     X = df[x_cols]
-    y = df[args.y_column]
-    if args.w_column is not None:
-        w = df[args.w_column]
+    y = df[y_col]
+
+    if "weight" in param_file_contents:
+        w_col = list(param_file_contents["weight"].keys())[0]
+        w = df[w_col]
     else:
         w = None
 
@@ -351,8 +395,8 @@ def plot(args):
         linreg=args.linreg,
         linreg_coefs=linreg_coefs,
         linreg_intercept=linreg_intercept,
-        feature_names=feature_names,
-        y_name=args.y_name,
+        feature_names=feature_dict,
+        y_name=y_name,
         subtitle=args.subtitle,
         filename_suffix=suffix,
         xmin=args.xmin,
@@ -363,30 +407,6 @@ def plot(args):
 
 
 def add_data_arguments(parser) -> None:
-    parser.add_argument(
-        "-X",
-        "--X-columns",
-        type=str,
-        nargs="+",
-        required=True,
-        help="X columns (features) for fitting the models.",
-    )
-
-    parser.add_argument(
-        "-y",
-        "--y-column",
-        type=str,
-        required=True,
-        help="What variable are we trying to predict?",
-    )
-
-    parser.add_argument(
-        "-w",
-        "--w-column",
-        type=str,
-        help="Weight column.",
-    )
-
     parser.add_argument("-f", "--filter", type=str, nargs="*")
 
     parser.add_argument("data", help="Input data file.")
@@ -406,6 +426,30 @@ def main():
 
     optimize_parser = subparsers.add_parser(
         "optimize", help="Optimize hyperparameters for a given data set."
+    )
+
+    optimize_parser.add_argument(
+        "-X",
+        "--X-columns",
+        type=str,
+        nargs="+",
+        required=True,
+        help="X columns (features) for fitting the models.",
+    )
+
+    optimize_parser.add_argument(
+        "-y",
+        "--y-column",
+        type=str,
+        required=True,
+        help="What variable are we trying to predict?",
+    )
+
+    optimize_parser.add_argument(
+        "-w",
+        "--w-column",
+        type=str,
+        help="Weight column.",
     )
 
     optimize_parser.add_argument(
