@@ -6,6 +6,8 @@ import sys
 from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 from logging import getLogger
 
+import re
+
 from argparse import ArgumentParser, Namespace
 
 from logargparser import LoggingArgumentParser
@@ -203,22 +205,66 @@ def read_and_filter_data(
     if filters is None:
         filters = []
 
-    filter_names = [f.split("=")[0] for f in filters]
+    filter_pattern = re.compile(r"^(\w+)\s*(<|>|<=|>=|=|==|===|!=)\s*(\w+)$")
+
+    filter_expressions = []
+
+    for f in filters:
+        match = filter_pattern.match(f)
+        if match is not None:
+            logger.info(
+                f"Parsed filter {match.group(1)} {match.group(2)} {match.group(3)}"
+            )
+            filter_expressions.append(
+                {
+                    "column": match.group(1),
+                    "operator": match.group(2),
+                    "value": match.group(3),
+                }
+            )
+
+    string_filter_names = [
+        f.column for f in filter_expressions if f["operator"] == "==="
+    ]
 
     str_col_types = {
-        col: str for col in set(["STATE", "COUNTY", "TRACT"] + filter_names)
+        # TODO - get a definitive list of geo columns that are strings from
+        # a new API to be added to censusdis.
+        col: str
+        for col in set(
+            ["STATE", "COUNTY", "TRACT", "BLOCK_GROUP"] + string_filter_names
+        )
     }
 
     df = pd.read_csv(data_path, header=0, dtype=str_col_types)
 
     logger.info(f"Initial rows: {len(df.index)}")
 
-    for f in filters:
-        col, value = f.split("=")
+    for f in filter_expressions:
+        col = f["column"]
+        op = f["operator"]
+        value = f["value"]
 
-        logger.info(f"Filtering {col} to equal {value}")
+        # Before we can do the comparison, we have to
+        # cast the value that originally came in as a
+        # string on the command line to the type of the
+        # column we are comparing it to.
+        typed_value = df[col].dtypes.type(value)
 
-        df = df[df[col] == value]
+        logger.info(f"Filtering {col} {op} {typed_value}")
+
+        exprs = {
+            "=": df[col] == typed_value,
+            "==": df[col] == typed_value,
+            "===": df[col] == typed_value,
+            "!=": df[col] != typed_value,
+            "<": df[col] < typed_value,
+            ">": df[col] > typed_value,
+            "<=": df[col] <= typed_value,
+            ">=": df[col] >= typed_value,
+        }
+
+        df = df[exprs[op]]
 
         logger.info(f"Remaining rows: {len(df.index)}")
 
