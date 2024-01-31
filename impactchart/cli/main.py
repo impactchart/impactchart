@@ -17,7 +17,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-from matplotlib.ticker import FuncFormatter, PercentFormatter
+from matplotlib.ticker import FuncFormatter, PercentFormatter, Formatter
 
 import xgboost
 import yaml
@@ -293,6 +293,22 @@ def _plot_id(feature, k, n, seed):
     return f"(f = {feature}; n = {n:,.0f}; k = {k}; s = {seed:08X})"
 
 
+# Formatters for the tick marks on the plots.
+_dollar_formatter = FuncFormatter(
+    lambda d, pos: f"\\${d:,.0f}" if d >= 0 else f"(\\${-d:,.0f})"
+)
+
+_comma_formatter = FuncFormatter(lambda d, pos: f"{d:,.0f}")
+
+_percent_formatter = PercentFormatter(1.0, decimals=0)
+
+_formatter_for_arg_value = {
+    "PERCENTAGE": _percent_formatter,
+    "DOLLAR": _dollar_formatter,
+    "COMMA": _comma_formatter,
+}
+
+
 def plot_impact_charts(
     impact_model: XGBoostImpactModel,
     X: pd.DataFrame,
@@ -312,6 +328,7 @@ def plot_impact_charts(
     xmax: Optional[float] = None,
     ymin: Optional[float] = None,
     ymax: Optional[float] = None,
+    yformatter: Optional[Formatter] = None,
 ):
     if linreg:
         reg_linreg = _linreg_from_coefficients(linreg_coefs, linreg_intercept)
@@ -328,12 +345,6 @@ def plot_impact_charts(
         subtitle=subtitle,
     )
     logger.info("Fitting complete.")
-
-    dollar_formatter = FuncFormatter(
-        lambda d, pos: f"\\${d:,.0f}" if d >= 0 else f"(\\${-d:,.0f})"
-    )
-
-    comma_formatter = FuncFormatter(lambda d, pos: f"{d:,.0f}")
 
     if filename_prefix is None:
         filename_prefix = ""
@@ -379,13 +390,14 @@ def plot_impact_charts(
         col_is_fractional = feature.startswith("frac_")
 
         if col_is_fractional:
-            ax.xaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
+            ax.xaxis.set_major_formatter(_percent_formatter)
             ax.set_xlim(-0.05, 1.05)
         elif "Income" in feature_names[feature]:
-            ax.xaxis.set_major_formatter(dollar_formatter)
+            ax.xaxis.set_major_formatter(_dollar_formatter)
             ax.set_xlim(-5_000, max(10_000, df_one_feature[feature].max()) * 1.05)
-        else:
-            ax.xaxis.set_major_formatter(comma_formatter)
+
+        if yformatter is not None:
+            ax.yaxis.set_major_formatter(yformatter)
 
         if xmin is not None or xmax is not None:
             ax.set_xlim(left=xmin, right=xmax)
@@ -456,6 +468,11 @@ def plot(args: Namespace) -> None:
 
     suffix = None
 
+    xmin = args.xmin
+    xmax = args.xmax
+    ymin = args.ymin
+    ymax = args.ymax
+
     plot_impact_charts(
         impact_model,
         X,
@@ -469,10 +486,11 @@ def plot(args: Namespace) -> None:
         y_name=y_name,
         subtitle=args.subtitle,
         filename_suffix=suffix,
-        xmin=args.xmin,
-        xmax=args.xmax,
-        ymin=args.ymin,
-        ymax=args.ymax,
+        xmin=xmin,
+        xmax=xmax,
+        ymin=ymin,
+        ymax=ymax,
+        yformatter=_formatter_for_arg_value[args.yformat]
     )
 
 
@@ -564,6 +582,16 @@ def main():
 
     plot_parser.add_argument("--ymin", type=float, help="Min value on the y axis.")
     plot_parser.add_argument("--ymax", type=float, help="Max value on the y axis.")
+
+    format_choices = ["COMMA", "DOLLAR", "PERCENTAGE",]
+
+    plot_parser.add_argument(
+        "--yformat",
+        type=str,
+        choices=format_choices,
+        default="COMMA",
+        help="How to format the x ticks."
+    )
 
     args = parser.parse_args()
 
