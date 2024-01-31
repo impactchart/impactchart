@@ -490,7 +490,7 @@ def plot(args: Namespace) -> None:
         xmax=xmax,
         ymin=ymin,
         ymax=ymax,
-        yformatter=_formatter_for_arg_value[args.yformat]
+        yformatter=_formatter_for_arg_value[args.yformat],
     )
 
 
@@ -583,14 +583,18 @@ def main():
     plot_parser.add_argument("--ymin", type=float, help="Min value on the y axis.")
     plot_parser.add_argument("--ymax", type=float, help="Max value on the y axis.")
 
-    format_choices = ["COMMA", "DOLLAR", "PERCENTAGE",]
+    format_choices = [
+        "COMMA",
+        "DOLLAR",
+        "PERCENTAGE",
+    ]
 
     plot_parser.add_argument(
         "--yformat",
         type=str,
         choices=format_choices,
         default="COMMA",
-        help="How to format the x ticks."
+        help="How to format the x ticks.",
     )
 
     args = parser.parse_args()
