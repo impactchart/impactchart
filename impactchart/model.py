@@ -1,7 +1,6 @@
 """
 This package implements impact charts.
 """
-import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
