@@ -1,19 +1,21 @@
 """
 This package implements impact charts.
 """
-
+import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy import stats
 import pandas as pd
 import shap.maskers
 from shap import Explainer
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.model_selection import RandomizedSearchCV
 from xgboost import XGBRegressor
 
 
@@ -59,17 +61,21 @@ class ImpactModel(ABC):
         training_fraction: float = 0.8,
         random_state: Optional[np.random.RandomState | int] = None,
         estimator_kwargs: Optional[Dict[str, Any]] = None,
+        optimize_hyperparameters: bool = True,
     ):
         self._ensemble_size = ensemble_size
         self._training_fraction = training_fraction
         self._initial_random_state = random_state
         self._random_generator = np.random.default_rng(random_state)
+        self._optimize_hyperparameters = optimize_hyperparameters
+
+        self._plot_id = True
 
         if estimator_kwargs is None:
             estimator_kwargs = {}
         self._estimator_kwargs = estimator_kwargs
 
-        self._ensembled_estimators = self.ensemble_estimators()
+        self._ensembled_estimators = None
 
         self._X_fit = None
 
@@ -103,7 +109,9 @@ class ImpactModel(ABC):
         """
         raise NotImplementedError("Abstract method.")
 
-    def ensemble_estimators(self) -> List[BaseEstimator]:
+    def ensemble_estimators(
+        self, X: pd.DataFrame, y: pd.Series, sample_weight: Optional[pd.Series] = None
+    ) -> List[BaseEstimator]:
         """
         Construct all the estimators in the ensemble.
 
@@ -111,9 +119,12 @@ class ImpactModel(ABC):
         -------
             A list of estimators.
         """
-        estimators = [
-            self.estimator(**self._estimator_kwargs) for _ in range(self._ensemble_size)
-        ]
+        if self._optimize_hyperparameters:
+            params = self.optimize_hyperparameters(X, y, sample_weight=sample_weight)
+        else:
+            params = self._estimator_kwargs
+
+        estimators = [self.estimator(**params) for _ in range(self._ensemble_size)]
         return estimators
 
     def _training_sample(
@@ -148,6 +159,31 @@ class ImpactModel(ABC):
 
         return X_sample, y_sample, sample_weight_sample
 
+    def optimize_hyperparameters(
+        self, X: pd.DataFrame, y: pd.Series, sample_weight: Optional[pd.Series] = None
+    ) -> Dict[str, Any]:
+        """
+        Optimize the hyperparameters of the base estimator.
+
+        The default implementation does nothing. Derived classes can
+        override this if they wish to optimize the hyperparameters
+        of the estimator in an appropriate manner.
+
+        Parameters
+        ----------
+        X
+           Training features
+        y
+            Training values. Should have the same index as `X`
+        sample_weight
+            Sample weights. If provided, should have the same index as the `X`,
+        Returns
+        -------
+            An optimized estimator. How, or even if, optimization is done is up to
+            the derived concrete class.
+        """
+        return self._estimator_kwargs
+
     def fit(
         self, X: pd.DataFrame, y: pd.Series, sample_weight: Optional[pd.Series] = None
     ):
@@ -164,6 +200,8 @@ class ImpactModel(ABC):
         sample_weight
             Optional weights. If provided, should have the same index as `X`.
         """
+        self._ensembled_estimators = self.ensemble_estimators(X, y, sample_weight)
+
         for estimator in self._ensembled_estimators:
             X_sample, y_sample, sample_weight_sample = self._training_sample(
                 X, y, sample_weight
@@ -325,6 +363,9 @@ class ImpactModel(ABC):
 
         return f"(f = {feature}; n = {n:,.0f}; k = {self.k}; s = {s})"
 
+    def _plot_id_string(self, feature: str, n: int) -> str:
+        return f"(f = {feature}; n = {n:,.0f}; k = {self.k}; s = {self._initial_random_state:08X})"
+
     def impact_charts(
         self,
         X: pd.DataFrame,
@@ -472,6 +513,19 @@ class ImpactModel(ABC):
             for handle in ax.legend().legend_handles:
                 handle._sizes = [25]
 
+            if self._plot_id is not None:
+                plot_id = self._plot_id_string(feature, len(X.index))
+                ax.text(
+                    0.99,
+                    0.01,
+                    plot_id,
+                    fontsize=8,
+                    backgroundcolor="white",
+                    horizontalalignment="right",
+                    verticalalignment="bottom",
+                    transform=ax.transAxes,
+                )
+
             impacts[feature] = (
                 fig,
                 ax,
@@ -556,8 +610,76 @@ class XGBoostImpactModel(ImpactModel):
     An :py:class:`~ImpactModel` that uses XGBoost estimators.
     """
 
+    def __init__(
+        self,
+        *,
+        ensemble_size: int = 50,
+        training_fraction: float = 0.8,
+        random_state: Optional[np.random.RandomState | int] = None,
+        estimator_kwargs: Optional[Dict[str, Any]] = None,
+        optimize_hyperparameters: bool = True,
+        parameter_distributions: Optional[Dict[str, Any]] = None,
+        optimization_scoring_metric: Optional[str] = "rmse",
+    ):
+        super().__init__(
+            ensemble_size=ensemble_size,
+            training_fraction=training_fraction,
+            random_state=random_state,
+            estimator_kwargs=estimator_kwargs,
+            optimize_hyperparameters=optimize_hyperparameters,
+        )
+
+        self._parameter_distributions = parameter_distributions
+        self._optimization_scoring_metric = optimization_scoring_metric
+
     def estimator(self, **kwargs) -> BaseEstimator:
         return XGBRegressor(**kwargs)
+
+    def optimize_hyperparameters(
+        self, X: pd.DataFrame, y: pd.Series, sample_weight: Optional[pd.Series] = None
+    ) -> Dict[str, Any]:
+        """
+        Optimize the hyperparameters of the base estimator.
+
+        Parameters
+        ----------
+        X
+           Training features
+        y
+            Training values. Should have the same index as `X`
+        sample_weight
+            Sample weights. If provided, should have the same index as the `X`,
+        Returns
+        -------
+            An optimized estimator.
+        """
+        param_distributions = self._parameter_distributions
+
+        if param_distributions is None:
+            param_dist = {
+                "n_estimators": stats.randint(10, 100),
+                "learning_rate": stats.uniform(0.01, 0.07),
+                "subsample": stats.uniform(0.3, 0.7),
+                "max_depth": stats.randint(2, 6),
+                "min_child_weight": stats.randint(1, 4),
+            }
+
+        reg0 = XGBRegressor(**self._estimator_kwargs)
+
+        reg = RandomizedSearchCV(
+            reg0,
+            param_distributions=param_dist,
+            n_iter=200,
+            error_score=0,
+            n_jobs=-1,
+            verbose=1,
+            scoring=self._optimization_scoring_metric,
+            random_state=int(self._random_generator.uniform(0.0, 1.0) * 4294967295),
+        )
+
+        reg.fit(X, y, sample_weight=sample_weight)
+
+        return reg.best_params_
 
 
 class _CallableKNeighborsRegressor(KNeighborsRegressor):
