@@ -583,7 +583,7 @@ class ImpactModel(ABC):
                 plot_id = self._plot_id_string(feature, len(X.index))
                 ax.text(
                     0.99,
-                    0.01,
+                    0.02,
                     plot_id,
                     fontsize=8,
                     backgroundcolor="white",
