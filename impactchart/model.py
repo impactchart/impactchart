@@ -6,17 +6,16 @@ from collections.abc import Callable
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 import matplotlib.pyplot as plt
-from matplotlib.ticker import FuncFormatter, PercentFormatter, Formatter
-
 import numpy as np
-from scipy import stats
 import pandas as pd
 import shap.maskers
+from matplotlib.ticker import Formatter, FuncFormatter, PercentFormatter
+from scipy import stats
 from shap import Explainer
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import LinearRegression
-from sklearn.neighbors import KNeighborsRegressor
 from sklearn.model_selection import RandomizedSearchCV
+from sklearn.neighbors import KNeighborsRegressor
 from xgboost import XGBRegressor
 
 

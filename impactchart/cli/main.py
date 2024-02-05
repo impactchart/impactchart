@@ -1,32 +1,24 @@
 # Copyright (c) 2023 Darren Erik Vengroff
 """Command-line interface for impact charts."""
 
-import sys
-
-from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
-from logging import getLogger
-
 import re
-
+import sys
 from argparse import ArgumentParser, Namespace
-
-from logargparser import LoggingArgumentParser
-
+from logging import getLogger
 from pathlib import Path
+from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 
-import pandas as pd
 import numpy as np
-
-from matplotlib.ticker import FuncFormatter, PercentFormatter, Formatter
-
+import pandas as pd
 import xgboost
 import yaml
+from logargparser import LoggingArgumentParser
+from matplotlib.ticker import Formatter, FuncFormatter, PercentFormatter
 from scipy import stats
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import RandomizedSearchCV
 
 from impactchart.model import XGBoostImpactModel
-
 
 logger = getLogger(__name__)
 
