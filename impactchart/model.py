@@ -1,21 +1,22 @@
 """
 This package implements impact charts.
 """
-import sys
+
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy import stats
 import pandas as pd
 import shap.maskers
+from matplotlib.ticker import Formatter, FuncFormatter, PercentFormatter
+from scipy import stats
 from shap import Explainer
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import LinearRegression
-from sklearn.neighbors import KNeighborsRegressor
 from sklearn.model_selection import RandomizedSearchCV
+from sklearn.neighbors import KNeighborsRegressor
 from xgboost import XGBRegressor
 
 
@@ -52,6 +53,9 @@ class ImpactModel(ABC):
         reproducible deterministic outcomes.
     estimator_kwargs
         Keyword args to be passed to the underlying models.
+    optimize_hyperparameters
+        Whether to optimize hyperparameters when fitting or just use the
+        estimator with the given `estimator_kwargs`.
     """
 
     def __init__(
@@ -86,6 +90,7 @@ class ImpactModel(ABC):
         # For reference, the r^2 score of the best model on the
         # full data set.
         self._r2 = None
+        self._best_score = None
 
     @property
     def k(self) -> int:
@@ -114,7 +119,12 @@ class ImpactModel(ABC):
         raise NotImplementedError("Abstract method.")
 
     def ensemble_estimators(
-        self, X: pd.DataFrame, y: pd.Series, sample_weight: Optional[pd.Series] = None
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        sample_weight: Optional[pd.Series] = None,
+        *,
+        optimization_scoring_metric: Optional[str] = None,
     ) -> List[BaseEstimator]:
         """
         Construct all the estimators in the ensemble.
@@ -124,7 +134,12 @@ class ImpactModel(ABC):
             A list of estimators.
         """
         if self._optimize_hyperparameters:
-            params = self.optimize_hyperparameters(X, y, sample_weight=sample_weight)
+            params = self.optimize_hyperparameters(
+                X,
+                y,
+                sample_weight=sample_weight,
+                optimization_scoring_metric=optimization_scoring_metric,
+            )
         else:
             params = self._estimator_kwargs
 
@@ -164,7 +179,12 @@ class ImpactModel(ABC):
         return X_sample, y_sample, sample_weight_sample
 
     def optimize_hyperparameters(
-        self, X: pd.DataFrame, y: pd.Series, sample_weight: Optional[pd.Series] = None
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        sample_weight: Optional[pd.Series] = None,
+        *,
+        optimization_scoring_metric: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Optimize the hyperparameters of the base estimator.
@@ -189,7 +209,12 @@ class ImpactModel(ABC):
         return self._estimator_kwargs
 
     def fit(
-        self, X: pd.DataFrame, y: pd.Series, sample_weight: Optional[pd.Series] = None
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        sample_weight: Optional[pd.Series] = None,
+        *,
+        optimization_scoring_metric: Optional[str] = None,
     ):
         """
         Fit all of the estimators in the ensemble so that we can
@@ -204,7 +229,9 @@ class ImpactModel(ABC):
         sample_weight
             Optional weights. If provided, should have the same index as `X`.
         """
-        self._ensembled_estimators = self.ensemble_estimators(X, y, sample_weight)
+        self._ensembled_estimators = self.ensemble_estimators(
+            X, y, sample_weight, optimization_scoring_metric=optimization_scoring_metric
+        )
 
         for estimator in self._ensembled_estimators:
             X_sample, y_sample, sample_weight_sample = self._training_sample(
@@ -368,10 +395,35 @@ class ImpactModel(ABC):
         return f"(f = {feature}; n = {n:,.0f}; k = {self.k}; s = {s})"
 
     def _plot_id_string(self, feature: str, n: int) -> str:
-        return (
-            f"(f = {feature}; n = {n:,.0f}; k = {self.k}; s = {self._initial_random_state:08X} "
-            f"| r2 = {self._r2:0.2f})"
-        )
+        msg = f"f = {feature}; n = {n:,.0f}; k = {self.k}; "
+
+        if self._initial_random_state is not None:
+            msg += f"s = {self._initial_random_state:08X}"
+        else:
+            msg += "s = None"
+
+        return f"({msg})"
+
+    _dollar_formatter = FuncFormatter(
+        lambda d, pos: f"\\${d:,.0f}" if d >= 0 else f"(\\${-d:,.0f})"
+    )
+
+    _percent_formatter = PercentFormatter(1.0, decimals=0)
+
+    _comma_formatter = FuncFormatter(lambda d, pos: f"{d:,.0f}")
+
+    _formatter_for_arg_value = {
+        "percentage": _percent_formatter,
+        "dollar": _dollar_formatter,
+        "comma": _comma_formatter,
+    }
+
+    @classmethod
+    def _axis_formatter(cls, formatter: Formatter | str) -> Formatter:
+        if isinstance(formatter, Formatter):
+            return formatter
+        else:
+            return cls._formatter_for_arg_value[formatter]
 
     def impact_charts(
         self,
@@ -387,6 +439,9 @@ class ImpactModel(ABC):
         feature_names: Optional[Callable[[str], str] | Mapping[str, str]] = None,
         y_name: Optional[str] = None,
         subtitle: Optional[str] = None,
+        y_formatter: str = "comma",
+        x_formatter_default: str = "comma",
+        x_formatters: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Tuple[plt.Figure, plt.Axes]]:
         """
         Generate impact charts for a set of features.
@@ -520,11 +575,19 @@ class ImpactModel(ABC):
             for handle in ax.legend().legend_handles:
                 handle._sizes = [25]
 
+            # Format the axes.
+            ax.yaxis.set_major_formatter(self._axis_formatter(y_formatter))
+            if x_formatters is not None and feature in x_formatters:
+                x_formatter = x_formatters[feature]
+            else:
+                x_formatter = x_formatter_default
+            ax.xaxis.set_major_formatter(self._axis_formatter(x_formatter))
+
             if self._plot_id is not None:
                 plot_id = self._plot_id_string(feature, len(X.index))
                 ax.text(
                     0.99,
-                    0.01,
+                    0.02,
                     plot_id,
                     fontsize=8,
                     backgroundcolor="white",
@@ -626,7 +689,6 @@ class XGBoostImpactModel(ImpactModel):
         estimator_kwargs: Optional[Dict[str, Any]] = None,
         optimize_hyperparameters: bool = True,
         parameter_distributions: Optional[Dict[str, Any]] = None,
-        optimization_scoring_metric: Optional[str] = "rmse",
     ):
         super().__init__(
             ensemble_size=ensemble_size,
@@ -637,13 +699,17 @@ class XGBoostImpactModel(ImpactModel):
         )
 
         self._parameter_distributions = parameter_distributions
-        self._optimization_scoring_metric = optimization_scoring_metric
 
     def estimator(self, **kwargs) -> BaseEstimator:
         return XGBRegressor(**kwargs)
 
     def optimize_hyperparameters(
-        self, X: pd.DataFrame, y: pd.Series, sample_weight: Optional[pd.Series] = None
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        sample_weight: Optional[pd.Series] = None,
+        *,
+        optimization_scoring_metric: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Optimize the hyperparameters of the base estimator.
@@ -680,15 +746,28 @@ class XGBoostImpactModel(ImpactModel):
             error_score=0,
             n_jobs=-1,
             verbose=1,
-            scoring=self._optimization_scoring_metric,
+            scoring=optimization_scoring_metric,
             random_state=int(self._random_generator.uniform(0.0, 1.0) * 4294967295),
         )
 
         reg.fit(X, y, sample_weight=sample_weight)
 
         self._r2 = float(reg.best_estimator_.score(X, y, sample_weight=sample_weight))
+        self._best_score = reg.best_score_
 
         return reg.best_params_
+
+    def _plot_id_string(self, feature: str, n: int) -> str:
+        msg = f"f = {feature}; n = {n:,.0f}; k = {self.k}; "
+
+        if self._initial_random_state is not None:
+            msg += f"s = {self._initial_random_state:08X}"
+        else:
+            msg += "s = None"
+
+        if self._optimize_hyperparameters:
+            msg += f" | score = {self._best_score:0.2f}; r2 = {self._r2:0.2f})"
+        return f"({msg})"
 
 
 class _CallableKNeighborsRegressor(KNeighborsRegressor):
