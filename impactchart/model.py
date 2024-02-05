@@ -83,6 +83,10 @@ class ImpactModel(ABC):
         # to compute.
         self._df_impact = None
 
+        # For reference, the r^2 score of the best model on the
+        # full data set.
+        self._r2 = None
+
     @property
     def k(self) -> int:
         return self._ensemble_size
@@ -364,7 +368,10 @@ class ImpactModel(ABC):
         return f"(f = {feature}; n = {n:,.0f}; k = {self.k}; s = {s})"
 
     def _plot_id_string(self, feature: str, n: int) -> str:
-        return f"(f = {feature}; n = {n:,.0f}; k = {self.k}; s = {self._initial_random_state:08X})"
+        return (
+            f"(f = {feature}; n = {n:,.0f}; k = {self.k}; s = {self._initial_random_state:08X} "
+            f"| r2 = {self._r2:0.2f})"
+        )
 
     def impact_charts(
         self,
@@ -678,6 +685,8 @@ class XGBoostImpactModel(ImpactModel):
         )
 
         reg.fit(X, y, sample_weight=sample_weight)
+
+        self._r2 = float(reg.best_estimator_.score(X, y, sample_weight=sample_weight))
 
         return reg.best_params_
 
