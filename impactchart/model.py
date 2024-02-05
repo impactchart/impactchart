@@ -394,10 +394,14 @@ class ImpactModel(ABC):
         return f"(f = {feature}; n = {n:,.0f}; k = {self.k}; s = {s})"
 
     def _plot_id_string(self, feature: str, n: int) -> str:
-        return (
-            f"(f = {feature}; n = {n:,.0f}; k = {self.k}; s = {self._initial_random_state:08X} "
-            f"| score = {self._best_score:0.2f}; r2 = {self._r2:0.2f})"
-        )
+        msg = f"f = {feature}; n = {n:,.0f}; k = {self.k}; "
+
+        if self._initial_random_state is not None:
+            msg += f"s = {self._initial_random_state:08X}"
+        else:
+            msg += "s = None"
+
+        return f"({msg})"
 
     _dollar_formatter = FuncFormatter(
         lambda d, pos: f"\\${d:,.0f}" if d >= 0 else f"(\\${-d:,.0f})"
@@ -751,6 +755,18 @@ class XGBoostImpactModel(ImpactModel):
         self._best_score = reg.best_score_
 
         return reg.best_params_
+
+    def _plot_id_string(self, feature: str, n: int) -> str:
+        msg = f"f = {feature}; n = {n:,.0f}; k = {self.k}; "
+
+        if self._initial_random_state is not None:
+            msg += f"s = {self._initial_random_state:08X}"
+        else:
+            msg += "s = None"
+
+        if self._optimize_hyperparameters:
+            msg += f" | score = {self._best_score:0.2f}; r2 = {self._r2:0.2f})"
+        return f"({msg})"
 
 
 class _CallableKNeighborsRegressor(KNeighborsRegressor):
