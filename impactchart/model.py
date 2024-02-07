@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
+import textwrap
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -559,16 +561,18 @@ class ImpactModel(ABC):
 
             if y_name is not None:
                 if subtitle is not None:
-                    ax.set_title(f"Impact of {feature_name}\non {y_name}\n{subtitle}")
+                    title = f"Impact of {feature_name} on {y_name}\n{subtitle}"
                 else:
-                    ax.set_title(f"Impact of {feature_name}\non {y_name}")
+                    title = f"Impact of {feature_name} on {y_name}"
                 ax.set_ylabel(f"Impact on {y_name}")
             else:
                 if subtitle is not None:
-                    ax.set_title(f"Impact of {feature_name}\n{subtitle}")
+                    title = f"Impact of {feature_name} {subtitle}"
                 else:
-                    ax.set_title(f"Impact of {feature_name}")
+                    title = f"Impact of {feature_name}"
                 ax.set_ylabel("Impact")
+
+            ax.set_title(textwrap.fill(title, width=80))
             ax.set_xlabel(feature_name)
             ax.grid()
 
