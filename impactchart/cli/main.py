@@ -98,7 +98,7 @@ def optimize(args):
     )
 
     if not args.dry_run:
-        seed = int(args.seed, 0x58F2A5B9)
+        seed = int(args.seed, 0)
 
         impact_model = XGBoostImpactModel(random_state=seed)
 
@@ -371,7 +371,10 @@ def plot(args: Namespace) -> None:
     seed = int(args.seed, 0)
 
     impact_model = XGBoostImpactModel(
-        ensemble_size=k, random_state=seed, estimator_kwargs=xgb_params
+        ensemble_size=k,
+        random_state=seed,
+        estimator_kwargs=xgb_params,
+        optimize_hyperparameters=False,
     )
     impact_model.fit(X, y, sample_weight=w)
 
