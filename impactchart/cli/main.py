@@ -23,62 +23,6 @@ from impactchart.model import XGBoostImpactModel
 logger = getLogger(__name__)
 
 
-def optimize_xgb(
-    df: pd.DataFrame,
-    x_cols: Iterable[str],
-    y_col: str,
-    w_col: Optional[str] = None,
-    *,
-    scoring: Optional[str] = None,
-    random_state: Optional[int] = 17,
-) -> Dict[str, Any]:
-    logger.info("Optimizing the XBG model.")
-
-    reg_xgb = xgboost.XGBRegressor()
-
-    param_dist = {
-        "n_estimators": stats.randint(10, 100),
-        "learning_rate": stats.uniform(0.01, 0.07),
-        "subsample": stats.uniform(0.3, 0.7),
-        "max_depth": stats.randint(2, 6),
-        "min_child_weight": stats.randint(1, 4),
-    }
-
-    reg = RandomizedSearchCV(
-        reg_xgb,
-        param_distributions=param_dist,
-        n_iter=200,
-        error_score=0,
-        n_jobs=-1,
-        verbose=1,
-        scoring=scoring,
-        random_state=random_state,
-    )
-
-    X = df[list(x_cols)]
-    y = df[y_col]
-
-    if w_col is not None:
-        w = df[w_col]
-    else:
-        w = None
-
-    reg.fit(X, y, sample_weight=w)
-
-    result = {
-        "params": reg.best_params_,
-        "target": float(reg.best_score_),
-        "score": float(reg.best_estimator_.score(X, y, sample_weight=w)),
-    }
-
-    result["params"]["learning_rate"] = float(result["params"]["learning_rate"])
-    result["params"]["subsample"] = float(result["params"]["subsample"])
-
-    logger.info("Optimization complete.")
-
-    return result
-
-
 def linreg(
     df: pd.DataFrame,
     x_cols: Iterable[str],
@@ -158,8 +102,19 @@ def optimize(args):
 
     if not args.dry_run:
         seed = int(args.seed, 0)
-        xgb_params = optimize_xgb(
-            df, x_cols, y_col, w_col=w_col, scoring=args.scoring, random_state=seed
+
+        impact_model = XGBoostImpactModel()
+
+        if w_col is not None:
+            sample_weight = df[w_col]
+        else:
+            sample_weight = None
+
+        xgb_params = impact_model.optimize_hyperparameters(
+            df[x_cols],
+            df[y_col],
+            sample_weight,
+            optimization_scoring_metric=args.scoring,
         )
 
         logger.info(f"Writing to output file `{output_path}`")
