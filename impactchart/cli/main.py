@@ -10,13 +10,10 @@ from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-import xgboost
 import yaml
 from logargparser import LoggingArgumentParser
-from matplotlib.ticker import Formatter, FuncFormatter, PercentFormatter
-from scipy import stats
+from matplotlib.ticker import Formatter
 from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import RandomizedSearchCV
 
 from impactchart.model import XGBoostImpactModel
 
@@ -101,9 +98,9 @@ def optimize(args):
     )
 
     if not args.dry_run:
-        seed = int(args.seed, 0)
+        seed = int(args.seed, 0x58F2A5B9)
 
-        impact_model = XGBoostImpactModel()
+        impact_model = XGBoostImpactModel(random_state=seed)
 
         if w_col is not None:
             sample_weight = df[w_col]
