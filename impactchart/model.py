@@ -757,7 +757,7 @@ class XGBoostImpactModel(ImpactModel):
         reg.fit(X, y, sample_weight=sample_weight)
 
         self._r2 = float(reg.best_estimator_.score(X, y, sample_weight=sample_weight))
-        self._best_score = reg.best_score_
+        self._best_score = float(reg.best_score_)
 
         return reg.best_params_
 

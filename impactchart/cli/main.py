@@ -117,6 +117,11 @@ def optimize(args):
             optimization_scoring_metric=args.scoring,
         )
 
+        # Some of these need to be converted from np
+        # data types so they serialize to yaml nicely.
+        for key in ["learning_rate", "subsample"]:
+            xgb_params[key] = float(xgb_params[key])
+
         logger.info(f"Writing to output file `{output_path}`")
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -135,7 +140,11 @@ def optimize(args):
             "features": features,
             "target": target,
             "linreg": linreg_params,
-            "xgb": xgb_params,
+            "xgb": {
+                "params": xgb_params,
+                "target": impact_model._best_score,
+                "score": impact_model._r2,
+            },
         }
 
         if w_col is not None:
@@ -240,22 +249,6 @@ def _plot_id(feature, k, n, seed):
     return f"(f = {feature}; n = {n:,.0f}; k = {k}; s = {seed:08X})"
 
 
-# Formatters for the tick marks on the plots.
-_dollar_formatter = FuncFormatter(
-    lambda d, pos: f"\\${d:,.0f}" if d >= 0 else f"(\\${-d:,.0f})"
-)
-
-_comma_formatter = FuncFormatter(lambda d, pos: f"{d:,.0f}")
-
-_percent_formatter = PercentFormatter(1.0, decimals=0)
-
-_formatter_for_arg_value = {
-    "PERCENTAGE": _percent_formatter,
-    "DOLLAR": _dollar_formatter,
-    "COMMA": _comma_formatter,
-}
-
-
 def plot_impact_charts(
     impact_model: XGBoostImpactModel,
     X: pd.DataFrame,
@@ -290,6 +283,11 @@ def plot_impact_charts(
         feature_names=feature_names,
         y_name=y_name,
         subtitle=subtitle,
+        y_formatter="dollar",
+        x_formatters=(
+            {col: "dollar" for col in X.columns if "Income" in feature_names[col]}
+            | {col: "percentage" for col in X.columns if col.startswith("frac")}
+        ),
     )
     logger.info("Fitting complete.")
 
@@ -321,37 +319,6 @@ def plot_impact_charts(
             ax = df_endpoints.plot.line(
                 feature, "impact", color="orange", ax=ax, label="Linear Model"
             )
-
-        plot_id = _plot_id(feature, k, len(X.index), seed)
-        ax.text(
-            0.99,
-            0.01,
-            plot_id,
-            fontsize=8,
-            backgroundcolor="white",
-            horizontalalignment="right",
-            verticalalignment="bottom",
-            transform=ax.transAxes,
-        )
-
-        col_is_fractional = feature.startswith("frac_")
-
-        if col_is_fractional:
-            ax.xaxis.set_major_formatter(_percent_formatter)
-            ax.set_xlim(-0.05, 1.05)
-        elif "Income" in feature_names[feature]:
-            ax.xaxis.set_major_formatter(_dollar_formatter)
-            ax.set_xlim(-5_000, max(10_000, df_one_feature[feature].max()) * 1.05)
-
-        if yformatter is not None:
-            ax.yaxis.set_major_formatter(yformatter)
-
-        if xmin is not None or xmax is not None:
-            ax.set_xlim(left=xmin, right=xmax)
-        if ymin is not None or ymax is not None:
-            ax.set_ylim(bottom=ymin, top=ymax)
-
-        ax.grid(visible=True)
 
         logger.info(f"Saving impact chart for {feature}.")
         fig.savefig(output_path / f"{filename_prefix}{feature}{filename_suffix}.png")
@@ -437,7 +404,7 @@ def plot(args: Namespace) -> None:
         xmax=xmax,
         ymin=ymin,
         ymax=ymax,
-        yformatter=_formatter_for_arg_value[args.yformat],
+        yformatter=args.yformat.lower(),
     )
 
 
