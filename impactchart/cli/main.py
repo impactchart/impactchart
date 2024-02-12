@@ -138,8 +138,8 @@ def optimize(args):
             "linreg": linreg_params,
             "xgb": {
                 "params": xgb_params,
-                "target": impact_model._best_score,
-                "score": impact_model._r2,
+                "target": impact_model.best_score_,
+                "score": impact_model.r2_,
             },
         }
 
@@ -176,7 +176,7 @@ def read_and_filter_data(
             )
 
     string_filter_names = [
-        f.column for f in filter_expressions if f["operator"] == "==="
+        f["column"] for f in filter_expressions if f["operator"] == "==="
     ]
 
     str_col_types = {
@@ -249,10 +249,8 @@ def plot_impact_charts(
     impact_model: XGBoostImpactModel,
     X: pd.DataFrame,
     output_path: Path,
-    k: int,
-    seed: int,
     *,
-    linreg: bool = False,
+    plot_linreg: bool = False,
     linreg_coefs: Optional[Iterable[float]] = None,
     linreg_intercept: Optional[float] = None,
     feature_names: Optional[Mapping[str, str]] = None,
@@ -268,8 +266,10 @@ def plot_impact_charts(
     x_formatter_default: str = "comma",
     x_formatters: Optional[Dict[str, str]] = None,
 ):
-    if linreg:
+    if plot_linreg:
         reg_linreg = _linreg_from_coefficients(linreg_coefs, linreg_intercept)
+    else:
+        reg_linreg = None
 
     logger.info("Fitting the impact chart model.")
     impact_charts = impact_model.impact_charts(
@@ -302,7 +302,7 @@ def plot_impact_charts(
             {f: X[f] if f == feature else 0.0 for f in X.columns}
         )
 
-        if linreg:
+        if reg_linreg is not None:
             df_one_feature["impact"] = reg_linreg.predict(df_one_feature)
 
             df_endpoints = pd.concat(
@@ -315,6 +315,11 @@ def plot_impact_charts(
             ax = df_endpoints.plot.line(
                 feature, "impact", color="orange", ax=ax, label="Linear Model"
             )
+
+        if xmin is not None or ymin is not None:
+            ax.set_xlim(xmin, xmax)
+        if ymin is not None or xmin is not None:
+            ax.set_ylim(ymin, ymax)
 
         logger.info(f"Saving impact chart for {feature}.")
         fig.savefig(output_path / f"{filename_prefix}{feature}{filename_suffix}.png")
@@ -395,9 +400,7 @@ def plot(args: Namespace) -> None:
         impact_model,
         X,
         output_path,
-        k,
-        seed,
-        linreg=args.linreg,
+        plot_linreg=args.linreg,
         linreg_coefs=linreg_coefs,
         linreg_intercept=linreg_intercept,
         feature_names=feature_dict,
