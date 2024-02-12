@@ -91,8 +91,8 @@ class ImpactModel(ABC):
 
         # For reference, the r^2 score of the best model on the
         # full data set.
-        self._r2 = None
-        self._best_score = None
+        self.r2_ = None
+        self.best_score_ = None
 
     @property
     def k(self) -> int:
@@ -203,6 +203,8 @@ class ImpactModel(ABC):
             Training values. Should have the same index as `X`
         sample_weight
             Sample weights. If provided, should have the same index as the `X`,
+        optimization_scoring_metric
+            The scoring metric to use. See https://scikit-learn.org/stable/modules/model_evaluation.html.
         Returns
         -------
             An optimized estimator. How, or even if, optimization is done is up to
@@ -230,6 +232,8 @@ class ImpactModel(ABC):
             Corresponding values. Should have the same index as `X`.
         sample_weight
             Optional weights. If provided, should have the same index as `X`.
+        optimization_scoring_metric
+            The scoring metric to use. See https://scikit-learn.org/stable/modules/model_evaluation.html.
         """
         self._ensembled_estimators = self.ensemble_estimators(
             X, y, sample_weight, optimization_scoring_metric=optimization_scoring_metric
@@ -247,12 +251,13 @@ class ImpactModel(ABC):
 
         self._X_fit = X
 
-    def _estimator_predict(self, X: pd.DataFrame, estimator, id) -> pd.DataFrame:
+    @staticmethod
+    def _estimator_predict(X: pd.DataFrame, estimator, estimator_id) -> pd.DataFrame:
         """
         Helper function for a single estimator.
         """
         df = pd.DataFrame(estimator.predict(X), columns=["y_hat"])
-        df["estimator"] = id
+        df["estimator"] = estimator_id
         return df
 
     def predict(self, X: pd.DataFrame):
@@ -283,7 +288,8 @@ class ImpactModel(ABC):
 
         return df_y_hat
 
-    def _masker(self, X: pd.DataFrame) -> shap.maskers.Masker:
+    @staticmethod
+    def _masker(X: pd.DataFrame) -> shap.maskers.Masker:
         """
         SHAP masker.
 
@@ -303,7 +309,9 @@ class ImpactModel(ABC):
         """
         return "auto"
 
-    def _estimator_impact(self, X: pd.DataFrame, estimator, id) -> pd.DataFrame:
+    def _estimator_impact(
+        self, X: pd.DataFrame, estimator, estimator_id
+    ) -> pd.DataFrame:
         """
         Generate the impact of each feature for a given estimator.
 
@@ -313,7 +321,7 @@ class ImpactModel(ABC):
             The feature values
         estimator
             The estimator
-        id
+        estimator_id
             An id to put into the result so we can identify the estimator
             that the impacts came from.
         Returns
@@ -329,7 +337,7 @@ class ImpactModel(ABC):
             )(X).values,
             columns=X.columns,
         )
-        df["estimator"] = id
+        df["estimator"] = estimator_id
         return df
 
     def impact(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -473,6 +481,13 @@ class ImpactModel(ABC):
             A name to use for the output of the model.
         subtitle
             A subtitle for the plot.
+        y_formatter
+            How to format the y values. Can be one of the following: 'comma', 'percentage', 'dollar'.
+        x_formatter_default:
+            How to format the x axis unless uverridden for a particular feature by `x_formatters`.
+            Same allowed values as `y_formatter`.
+        x_formatters:
+            A dictionary of how to format the x axis values. Keys are the features and values are the formats.
         Returns
         -------
             A dictionary whose key is the name of the features and whose values
@@ -726,13 +741,15 @@ class XGBoostImpactModel(ImpactModel):
             Training values. Should have the same index as `X`
         sample_weight
             Sample weights. If provided, should have the same index as the `X`,
+        optimization_scoring_metric
+            The scoring metric to use. See https://scikit-learn.org/stable/modules/model_evaluation.html.
         Returns
         -------
             An optimized estimator.
         """
-        param_distributions = self._parameter_distributions
+        param_dist = self._parameter_distributions
 
-        if param_distributions is None:
+        if param_dist is None:
             param_dist = {
                 "n_estimators": stats.randint(10, 100),
                 "learning_rate": stats.uniform(0.01, 0.07),
@@ -756,8 +773,8 @@ class XGBoostImpactModel(ImpactModel):
 
         reg.fit(X, y, sample_weight=sample_weight)
 
-        self._r2 = float(reg.best_estimator_.score(X, y, sample_weight=sample_weight))
-        self._best_score = reg.best_score_
+        self.r2_ = float(reg.best_estimator_.score(X, y, sample_weight=sample_weight))
+        self.best_score_ = float(reg.best_score_)
 
         return reg.best_params_
 
@@ -770,7 +787,7 @@ class XGBoostImpactModel(ImpactModel):
             msg += "s = None"
 
         if self._optimize_hyperparameters:
-            msg += f" | score = {self._best_score:0.2f}; r2 = {self._r2:0.2f})"
+            msg += f" | score = {self.best_score_:0.2f}; r2 = {self.r2_:0.2f})"
         return f"({msg})"
 
 

@@ -10,73 +10,13 @@ from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-import xgboost
 import yaml
 from logargparser import LoggingArgumentParser
-from matplotlib.ticker import Formatter, FuncFormatter, PercentFormatter
-from scipy import stats
 from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import RandomizedSearchCV
 
 from impactchart.model import XGBoostImpactModel
 
 logger = getLogger(__name__)
-
-
-def optimize_xgb(
-    df: pd.DataFrame,
-    x_cols: Iterable[str],
-    y_col: str,
-    w_col: Optional[str] = None,
-    *,
-    scoring: Optional[str] = None,
-    random_state: Optional[int] = 17,
-) -> Dict[str, Any]:
-    logger.info("Optimizing the XBG model.")
-
-    reg_xgb = xgboost.XGBRegressor()
-
-    param_dist = {
-        "n_estimators": stats.randint(10, 100),
-        "learning_rate": stats.uniform(0.01, 0.07),
-        "subsample": stats.uniform(0.3, 0.7),
-        "max_depth": stats.randint(2, 6),
-        "min_child_weight": stats.randint(1, 4),
-    }
-
-    reg = RandomizedSearchCV(
-        reg_xgb,
-        param_distributions=param_dist,
-        n_iter=200,
-        error_score=0,
-        n_jobs=-1,
-        verbose=1,
-        scoring=scoring,
-        random_state=random_state,
-    )
-
-    X = df[list(x_cols)]
-    y = df[y_col]
-
-    if w_col is not None:
-        w = df[w_col]
-    else:
-        w = None
-
-    reg.fit(X, y, sample_weight=w)
-
-    result = {
-        "params": reg.best_params_,
-        "target": float(reg.best_score_),
-        "score": float(reg.best_estimator_.score(X, y, sample_weight=w)),
-    }
-
-    result["params"]["learning_rate"] = float(result["params"]["learning_rate"])
-    result["params"]["subsample"] = float(result["params"]["subsample"])
-
-    logger.info("Optimization complete.")
-
-    return result
 
 
 def linreg(
@@ -158,9 +98,25 @@ def optimize(args):
 
     if not args.dry_run:
         seed = int(args.seed, 0)
-        xgb_params = optimize_xgb(
-            df, x_cols, y_col, w_col=w_col, scoring=args.scoring, random_state=seed
+
+        impact_model = XGBoostImpactModel(random_state=seed)
+
+        if w_col is not None:
+            sample_weight = df[w_col]
+        else:
+            sample_weight = None
+
+        xgb_params = impact_model.optimize_hyperparameters(
+            df[x_cols],
+            df[y_col],
+            sample_weight,
+            optimization_scoring_metric=args.scoring,
         )
+
+        # Some of these need to be converted from np
+        # data types so they serialize to yaml nicely.
+        for key in ["learning_rate", "subsample"]:
+            xgb_params[key] = float(xgb_params[key])
 
         logger.info(f"Writing to output file `{output_path}`")
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -180,7 +136,11 @@ def optimize(args):
             "features": features,
             "target": target,
             "linreg": linreg_params,
-            "xgb": xgb_params,
+            "xgb": {
+                "params": xgb_params,
+                "target": impact_model.best_score_,
+                "score": impact_model.r2_,
+            },
         }
 
         if w_col is not None:
@@ -216,7 +176,7 @@ def read_and_filter_data(
             )
 
     string_filter_names = [
-        f.column for f in filter_expressions if f["operator"] == "==="
+        f["column"] for f in filter_expressions if f["operator"] == "==="
     ]
 
     str_col_types = {
@@ -285,30 +245,12 @@ def _plot_id(feature, k, n, seed):
     return f"(f = {feature}; n = {n:,.0f}; k = {k}; s = {seed:08X})"
 
 
-# Formatters for the tick marks on the plots.
-_dollar_formatter = FuncFormatter(
-    lambda d, pos: f"\\${d:,.0f}" if d >= 0 else f"(\\${-d:,.0f})"
-)
-
-_comma_formatter = FuncFormatter(lambda d, pos: f"{d:,.0f}")
-
-_percent_formatter = PercentFormatter(1.0, decimals=0)
-
-_formatter_for_arg_value = {
-    "PERCENTAGE": _percent_formatter,
-    "DOLLAR": _dollar_formatter,
-    "COMMA": _comma_formatter,
-}
-
-
 def plot_impact_charts(
     impact_model: XGBoostImpactModel,
     X: pd.DataFrame,
     output_path: Path,
-    k: int,
-    seed: int,
     *,
-    linreg: bool = False,
+    plot_linreg: bool = False,
     linreg_coefs: Optional[Iterable[float]] = None,
     linreg_intercept: Optional[float] = None,
     feature_names: Optional[Mapping[str, str]] = None,
@@ -320,10 +262,14 @@ def plot_impact_charts(
     xmax: Optional[float] = None,
     ymin: Optional[float] = None,
     ymax: Optional[float] = None,
-    yformatter: Optional[Formatter] = None,
+    yformatter: str = "comman",
+    x_formatter_default: str = "comma",
+    x_formatters: Optional[Dict[str, str]] = None,
 ):
-    if linreg:
+    if plot_linreg:
         reg_linreg = _linreg_from_coefficients(linreg_coefs, linreg_intercept)
+    else:
+        reg_linreg = None
 
     logger.info("Fitting the impact chart model.")
     impact_charts = impact_model.impact_charts(
@@ -335,6 +281,9 @@ def plot_impact_charts(
         feature_names=feature_names,
         y_name=y_name,
         subtitle=subtitle,
+        y_formatter=yformatter,
+        x_formatters=x_formatters,
+        x_formatter_default=x_formatter_default,
     )
     logger.info("Fitting complete.")
 
@@ -353,7 +302,7 @@ def plot_impact_charts(
             {f: X[f] if f == feature else 0.0 for f in X.columns}
         )
 
-        if linreg:
+        if reg_linreg is not None:
             df_one_feature["impact"] = reg_linreg.predict(df_one_feature)
 
             df_endpoints = pd.concat(
@@ -367,36 +316,10 @@ def plot_impact_charts(
                 feature, "impact", color="orange", ax=ax, label="Linear Model"
             )
 
-        plot_id = _plot_id(feature, k, len(X.index), seed)
-        ax.text(
-            0.99,
-            0.01,
-            plot_id,
-            fontsize=8,
-            backgroundcolor="white",
-            horizontalalignment="right",
-            verticalalignment="bottom",
-            transform=ax.transAxes,
-        )
-
-        col_is_fractional = feature.startswith("frac_")
-
-        if col_is_fractional:
-            ax.xaxis.set_major_formatter(_percent_formatter)
-            ax.set_xlim(-0.05, 1.05)
-        elif "Income" in feature_names[feature]:
-            ax.xaxis.set_major_formatter(_dollar_formatter)
-            ax.set_xlim(-5_000, max(10_000, df_one_feature[feature].max()) * 1.05)
-
-        if yformatter is not None:
-            ax.yaxis.set_major_formatter(yformatter)
-
-        if xmin is not None or xmax is not None:
-            ax.set_xlim(left=xmin, right=xmax)
-        if ymin is not None or ymax is not None:
-            ax.set_ylim(bottom=ymin, top=ymax)
-
-        ax.grid(visible=True)
+        if xmin is not None or ymin is not None:
+            ax.set_xlim(xmin, xmax)
+        if ymin is not None or xmin is not None:
+            ax.set_ylim(ymin, ymax)
 
         logger.info(f"Saving impact chart for {feature}.")
         fig.savefig(output_path / f"{filename_prefix}{feature}{filename_suffix}.png")
@@ -452,7 +375,10 @@ def plot(args: Namespace) -> None:
     seed = int(args.seed, 0)
 
     impact_model = XGBoostImpactModel(
-        ensemble_size=k, random_state=seed, estimator_kwargs=xgb_params
+        ensemble_size=k,
+        random_state=seed,
+        estimator_kwargs=xgb_params,
+        optimize_hyperparameters=False,
     )
     impact_model.fit(X, y, sample_weight=w)
 
@@ -465,13 +391,16 @@ def plot(args: Namespace) -> None:
     ymin = args.ymin
     ymax = args.ymax
 
+    if args.xformat is not None:
+        x_formatters = {feature: x_format for feature, x_format in args.xformat}
+    else:
+        x_formatters = {}
+
     plot_impact_charts(
         impact_model,
         X,
         output_path,
-        k,
-        seed,
-        linreg=args.linreg,
+        plot_linreg=args.linreg,
         linreg_coefs=linreg_coefs,
         linreg_intercept=linreg_intercept,
         feature_names=feature_dict,
@@ -482,7 +411,9 @@ def plot(args: Namespace) -> None:
         xmax=xmax,
         ymin=ymin,
         ymax=ymax,
-        yformatter=_formatter_for_arg_value[args.yformat],
+        yformatter=args.yformat.lower(),
+        x_formatters=x_formatters,
+        x_formatter_default=args.xformat_default,
     )
 
 
@@ -576,17 +507,45 @@ def main():
     plot_parser.add_argument("--ymax", type=float, help="Max value on the y axis.")
 
     format_choices = [
-        "COMMA",
-        "DOLLAR",
-        "PERCENTAGE",
+        "comma",
+        "dollar",
+        "percentage",
     ]
 
     plot_parser.add_argument(
         "--yformat",
         type=str,
         choices=format_choices,
-        default="COMMA",
-        help="How to format the x ticks.",
+        default="comma",
+        help="How to format the Y ticks.",
+    )
+
+    def xformat_tuple_type(x_format_arg: str) -> Tuple[str, str]:
+        """Parse a xformat arg value into a feature and format tuple."""
+        if x_format_arg.count(":") != 1:
+            raise ValueError(
+                "Invalid xformat '{}'. Must contain exactly one ':'".format(
+                    x_format_arg
+                )
+            )
+        feature, x_format = x_format_arg.split(":")
+        if x_format not in format_choices:
+            raise ValueError(f"Invalid xformat {x_format} for feature '{feature}'.")
+        return feature, x_format
+
+    plot_parser.add_argument(
+        "--xformat",
+        type=xformat_tuple_type,
+        nargs="*",
+        help=f"Use value 'feature:format' to specify the format for each feature. format is one of {format_choices}.",
+    )
+
+    plot_parser.add_argument(
+        "--xformat-default",
+        type=str,
+        choices=format_choices,
+        default="comma",
+        help="How to format the x ticks for features not specificed in --xformat.",
     )
 
     args = parser.parse_args()
