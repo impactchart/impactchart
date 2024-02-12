@@ -12,7 +12,6 @@ import numpy as np
 import pandas as pd
 import yaml
 from logargparser import LoggingArgumentParser
-from matplotlib.ticker import Formatter
 from sklearn.linear_model import LinearRegression
 
 from impactchart.model import XGBoostImpactModel
@@ -265,7 +264,9 @@ def plot_impact_charts(
     xmax: Optional[float] = None,
     ymin: Optional[float] = None,
     ymax: Optional[float] = None,
-    yformatter: Optional[Formatter] = None,
+    yformatter: str = "comman",
+    x_formatter_default: str = "comma",
+    x_formatters: Optional[Dict[str, str]] = None,
 ):
     if linreg:
         reg_linreg = _linreg_from_coefficients(linreg_coefs, linreg_intercept)
@@ -280,11 +281,9 @@ def plot_impact_charts(
         feature_names=feature_names,
         y_name=y_name,
         subtitle=subtitle,
-        y_formatter="dollar",
-        x_formatters=(
-            {col: "dollar" for col in X.columns if "Income" in feature_names[col]}
-            | {col: "percentage" for col in X.columns if col.startswith("frac")}
-        ),
+        y_formatter=yformatter,
+        x_formatters=x_formatters,
+        x_formatter_default=x_formatter_default,
     )
     logger.info("Fitting complete.")
 
@@ -387,6 +386,11 @@ def plot(args: Namespace) -> None:
     ymin = args.ymin
     ymax = args.ymax
 
+    if args.xformat is not None:
+        x_formatters = {feature: x_format for feature, x_format in args.xformat}
+    else:
+        x_formatters = {}
+
     plot_impact_charts(
         impact_model,
         X,
@@ -405,6 +409,8 @@ def plot(args: Namespace) -> None:
         ymin=ymin,
         ymax=ymax,
         yformatter=args.yformat.lower(),
+        x_formatters=x_formatters,
+        x_formatter_default=args.xformat_default,
     )
 
 
@@ -508,7 +514,35 @@ def main():
         type=str,
         choices=format_choices,
         default="COMMA",
-        help="How to format the x ticks.",
+        help="How to format the Y ticks.",
+    )
+
+    def xformat_tuple_type(x_format_arg: str) -> Tuple[str, str]:
+        """Parse a xformat arg value into a feature and format tuple."""
+        if x_format_arg.count(":") != 1:
+            raise ValueError(
+                "Invalid xformat '{}'. Must contain exactly one ':'".format(
+                    x_format_arg
+                )
+            )
+        feature, x_format = x_format_arg.split(":")
+        if x_format not in format_choices:
+            raise ValueError(f"Invalid xformat {x_format} for feature '{feature}'.")
+        return feature, x_format
+
+    plot_parser.add_argument(
+        "--xformat",
+        type=xformat_tuple_type,
+        nargs="*",
+        help=f"Use value 'feature:format' to specify the format for each feature. format is one of {format_choices}.",
+    )
+
+    plot_parser.add_argument(
+        "--xformat-default",
+        type=str,
+        choices=format_choices,
+        default="COMMA",
+        help="How to format the x ticks for features not specificed in --xformat.",
     )
 
     args = parser.parse_args()
