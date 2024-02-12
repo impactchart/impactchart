@@ -1,0 +1,113 @@
+# Generate a test coverage report and commit it back to the repo
+# and push. This is run after a PR is merged so that the coverage
+# report is kept up to date with respect to what is on the main
+# branch.
+#
+# See also:
+#    unit-test.yml: run on a single platform every time a branch is pushed
+#    test-matrix.yml: run on all platforms for each pull request
+
+name: coverage-report
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [closed]
+
+jobs:
+  test-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      #----------------------------------------------
+      #       check out repo
+      #----------------------------------------------
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ssh-key:
+            ${{secrets.DEPLOY_ACTION_SECRET}}
+      #----------------------------------------------
+      #       set up python
+      #----------------------------------------------
+      - name: Set up python
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+      #----------------------------------------------
+      #      install & configure poetry
+      #----------------------------------------------
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      #----------------------------------------------
+      #       load cached venv if cache exists
+      #----------------------------------------------
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+      #----------------------------------------------
+      # install dependencies if cache does not exist
+      #----------------------------------------------
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+      #----------------------------------------------
+      # install your root project, if required
+      #----------------------------------------------
+      - name: Install library
+        run: poetry install --no-interaction
+      #----------------------------------------------
+      #              run test suite
+      #----------------------------------------------
+      - name: Run tests with coverage
+        id: runTests
+        run: |
+          source .venv/bin/activate
+          coverage run -m pytest --junitxml=reports/junit/junit.xml
+      #----------------------------------------------
+      #              archive test artifacts
+      #----------------------------------------------
+      - name: Archive test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test_artifacts
+          path: tests/_test_artifacts
+          retention-days: 7
+      #----------------------------------------------
+      #              generate coverage
+      #----------------------------------------------
+      - name: Generate coverage reports and badges
+        run: |
+          source .venv/bin/activate
+          coverage report 
+          coverage xml -o ./reports/coverage/coverage.xml
+          coverage html -d ./reports/coverage 
+          genbadge coverage -n coverage -o ./reports/coverage/coverage-badge.svg
+          genbadge tests --name tests -i reports/junit/junit.xml -o ./reports/junit/tests-badge.svg
+      #----------------------------------------------
+      #              commit coverage
+      #----------------------------------------------
+      - name: Commit coverage reports and badge
+        run: |
+          /usr/bin/git config --local user.email "action@github.com"
+          /usr/bin/git config --local user.name "GitHub Action"
+          /usr/bin/git add ./reports/coverage/*.html
+          /usr/bin/git add ./reports/coverage/*.png
+          /usr/bin/git add ./reports/coverage/*.js
+          /usr/bin/git add ./reports/coverage/*.css
+          /usr/bin/git add ./reports/coverage/coverage-badge.svg
+          /usr/bin/git add ./reports/junit/tests-badge.svg
+          /usr/bin/git diff --staged --quiet || /usr/bin/git commit -m "Update badge(s) [github action]"
+      - name: Update git
+        run: |
+          git push -f
