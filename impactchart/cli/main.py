@@ -504,16 +504,16 @@ def main():
     plot_parser.add_argument("--ymax", type=float, help="Max value on the y axis.")
 
     format_choices = [
-        "COMMA",
-        "DOLLAR",
-        "PERCENTAGE",
+        "comma",
+        "dollar",
+        "percentage",
     ]
 
     plot_parser.add_argument(
         "--yformat",
         type=str,
         choices=format_choices,
-        default="COMMA",
+        default="comma",
         help="How to format the Y ticks.",
     )
 
@@ -541,7 +541,7 @@ def main():
         "--xformat-default",
         type=str,
         choices=format_choices,
-        default="COMMA",
+        default="comma",
         help="How to format the x ticks for features not specificed in --xformat.",
     )
 
