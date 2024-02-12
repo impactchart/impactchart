@@ -1,9 +1,21 @@
 [tool.poetry]
 name = "impactchart"
 version = "0.4.0"
-description = ""
-authors = ["vengroff <vengroff@gmail.com>"]
+description = "A package for generating impact charts."
+license = "HL3-CL-ECO-EXTR-FFD-LAW-MIL-SV"
+authors = ["Darren Vengroff"]
 readme = "README.md"
+repository = "https://github.com/vengroff/impactchart"
+keywords = ["impact charts", "regression", "machine learning", "analysis"]
+classifiers = [
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research"
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"
