@@ -1610,13 +1610,13 @@ files = [
 
 [[package]]
 name = "threadpoolctl"
-version = "3.2.0"
+version = "3.3.0"
 description = "threadpoolctl"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "threadpoolctl-3.2.0-py3-none-any.whl", hash = "sha256:2b7818516e423bdaebb97c723f86a7c6b0a83d3f3b0970328d66f4d9104dc032"},
-    {file = "threadpoolctl-3.2.0.tar.gz", hash = "sha256:c96a0ba3bdddeaca37dc4cc7344aafad41cdb8c313f74fdfe387a867bba93355"},
+    {file = "threadpoolctl-3.3.0-py3-none-any.whl", hash = "sha256:6155be1f4a39f31a18ea70f94a77e0ccd57dced08122ea61109e7da89883781e"},
+    {file = "threadpoolctl-3.3.0.tar.gz", hash = "sha256:5dac632b4fa2d43f42130267929af3ba01399ef4bd1882918e92dbc30365d30c"},
 ]
 
 [[package]]
@@ -1635,6 +1635,17 @@ numpy = "*"
 
 [package.extras]
 all = ["defusedxml", "fsspec", "imagecodecs (>=2023.8.12)", "lxml", "matplotlib", "zarr"]
+
+[[package]]
+name = "toml"
+version = "0.10.2"
+description = "Python Library for Tom's Obvious, Minimal Language"
+optional = false
+python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
+files = [
+    {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
+    {file = "toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"},
+]
 
 [[package]]
 name = "tqdm"
@@ -1685,6 +1696,20 @@ socks = ["pysocks (>=1.5.6,!=1.5.7,<2.0)"]
 zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
+name = "usingversion"
+version = "0.1.0"
+description = "A package to make it easy for other packages to report their version."
+optional = false
+python-versions = ">=3.11,<4.0"
+files = [
+    {file = "usingversion-0.1.0-py3-none-any.whl", hash = "sha256:3991b129c693a4a56283c420ea4eed02eb732121a07a87009af02f0c4584a587"},
+    {file = "usingversion-0.1.0.tar.gz", hash = "sha256:89dc5d4090aa9c2c85c4c42b279669e72293eebcc103fbdfc784a79ef8bd579a"},
+]
+
+[package.dependencies]
+toml = ">=0.10.2,<0.11.0"
+
+[[package]]
 name = "xgboost"
 version = "2.0.3"
 description = "XGBoost Python Package"
@@ -1714,4 +1739,4 @@ scikit-learn = ["scikit-learn"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "4577e3a2d9c03e605feacbbd11c07288b190d5c9cbc6f806f268a09ea899fca5"
+content-hash = "069173115047f98762dd78d633d599184b8d0cbdae71a360c33a81de44156a8e"
