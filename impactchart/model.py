@@ -357,7 +357,7 @@ class ImpactModel(ABC):
             column. The number of rows in the number of rows in X times the number of
             estimators.
         """
-        if self._df_impact is None or self._X_for_last_df_impact is not X:
+        if self._df_impact is None or not X.equals(self._X_for_last_df_impact):
             df_impact = pd.concat(
                 self._estimator_impact(X, estimator, ii)
                 for ii, estimator in enumerate(self._ensembled_estimators)
@@ -450,7 +450,7 @@ class ImpactModel(ABC):
     def impact_charts(
         self,
         X: pd.DataFrame,
-        features: Iterable[str],
+        features: Optional[Iterable[str]] = None,
         *,
         markersize: int = 4,
         color: str = "darkgreen",
@@ -473,7 +473,7 @@ class ImpactModel(ABC):
         X
             The feature values.
         features
-            Which specific features we want charts for.
+            Which specific features we want charts for. If `None`, all columns of `X` will be assumed to be features.
         markersize
             Size of the marker
         color
@@ -505,6 +505,9 @@ class ImpactModel(ABC):
             A dictionary whose key is the name of the features and whose values
             are tuples of `fiq` and `ax` for the plot for that feature.
         """
+        if features is None:
+            features = X.columns
+
         if plot_kwargs is None:
             plot_kwargs = {}
 
