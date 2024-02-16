@@ -86,8 +86,11 @@ class ImpactModel(ABC):
         self._X_fit = None
 
         # We will cache the impact here since it can be expensive
-        # to compute.
+        # to compute. It's an LRU cache of size 1, which is easy
+        # to implement and covers common cases. functools.lru_cache
+        # does not work because the type pd.DataFrame is not hashable.
         self._df_impact = None
+        self._X_for_last_df_impact = None
 
         # For reference, the r^2 score of the best model on the
         # full data set.
@@ -354,16 +357,25 @@ class ImpactModel(ABC):
             column. The number of rows in the number of rows in X times the number of
             estimators.
         """
-        if self._df_impact is None:
+        if self._df_impact is None or self._X_for_last_df_impact is not X:
             df_impact = pd.concat(
                 self._estimator_impact(X, estimator, ii)
                 for ii, estimator in enumerate(self._ensembled_estimators)
             )
-
             df_impact = df_impact.reset_index(names="X_index")
+
             self._df_impact = df_impact[["estimator", "X_index"] + list(X.columns)]
+            self._X_for_last_df_impact = X
 
         return self._df_impact
+
+    def mean_impact(self, X: pd.DataFrame) -> pd.DataFrame:
+        df_impact = self.impact(X)
+
+        df_mean_impact = df_impact.groupby("X_index")[list(X.columns)].mean()
+        df_mean_impact.index.name = None
+
+        return df_mean_impact
 
     def bucketed_impact(
         self, X: pd.DataFrame, feature: str, buckets: int = 10
