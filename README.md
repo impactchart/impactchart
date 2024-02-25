@@ -14,6 +14,54 @@
 
 `impactchart` is a Python library for generating impact charts.
 
+Impact charts make it easy to visualize the impact of one variable on another
+in ways that techniques like scatter plots and linear regression don't, especially
+when there are other variables involved. 
+
+So instead of looking for the impact of `x_3` on `y` in a scatter plot like this
+
+![A scatter plot of y vs. x_3](./images/y_vs_x3.png)
+
+we can see it more directly in an impact chart like this
+
+![An impact chart showing the impact of x_3 on y](./images/x3_impact.png)
+
+In the scatter plot, we added regression curves for linear regression and
+quadratic regression, but they did not tell us much more. The reason is that
+in the data set we are looking at, `x_3` isn't the only feature that impacts
+`y`. There are other `x_i` whose cumulative impact hides that of `x_3`.
+
+The impact chart, on the other hand, we see the impact of `x_3` on `y` independent
+of the effect of any other `x_i`. The green dots represent our best estimate of the 
+impact. The grey dots around them represent the estimate of the impact based on many
+(in this case 50) different machine learning models. When they are close to the green
+dots, as on the left side of the chart it means there is strong agreement among the
+models as to the impact. When they are farther apart, as on the left side of the chart,
+there is less agreement.
+
+The general shape of the curve of green dots, and the fact that the gray dots remain
+rather tightly grouped around it, suggest that the impact of `x_3` on `y` is very limited
+when `x_3` is negative. But as it becomes increasingly positive, it's impact grows more 
+and more rapidly. It might even be exponential \[Spoiler alert: this is synthetic data and 
+the impact is exponential.].
+
+The reason impact charts like the one we are looking at are so powerful is that they 
+very clealy and directly show us the impact of one feature in a data set on a target 
+of interest.
+
+Impact charts can find impact even though, unlike parametric techniques like linear and 
+quadratic regression, they don't have any _a priori_ knowledge of the 
+shape of the impacts they are looking for. For example, in the data set we have been
+looking at, there is another feature `x_2` whose impact on `y` is sinusoidal. And the 
+impact chart for it shows this clearly
+
+![An impact chart showing the impact of x_2 on y](./images/x2_impact.png)
+
+
+
+
+
+
 Please see [An Introduction to Impact Charts](https://datapinions.com/an-introduction-to-impact-charts/)
 for an introduction to what they are all about.
 
