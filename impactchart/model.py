@@ -802,7 +802,7 @@ class XGBoostImpactModel(ImpactModel):
             msg += "s = None"
 
         if self._optimize_hyperparameters:
-            msg += f" | score = {self.best_score_:0.2f}; r2 = {self.r2_:0.2f})"
+            msg += f" | CV score = {self.best_score_:0.2f}; r2 = {self.r2_:0.2f})"
         return f"({msg})"
 
 
