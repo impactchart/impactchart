@@ -140,7 +140,7 @@ vertical scale, so that the magnitudes of the impacts can be compared.
 If you would like to see more impact charts generated from this data set, please visit
 [http://evl.datapinions.com/](http://evl.datapinions.com/).
 
-## How do I Make an Impact Chart
+## How Do I Make an Impact Chart
 
 The first step is to install the `impactchart` code in a virtual environment using
 
@@ -176,7 +176,7 @@ For more details, please see the
 `Synthetic Data.ipynb` 
 notebook, from which the code above is derived.
 
-## How do Impact Charts Work
+## How Do Impact Charts Work
 
 Impact charts are built on top of 
 [shap](https://github.com/shap/shap), 
