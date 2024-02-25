@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "impactchart"
-version = "0.4.1"
+version = "0.4.2"
 description = "A package for generating impact charts."
 license = "HL3-CL-ECO-EXTR-FFD-LAW-MIL-SV"
 authors = ["Darren Vengroff"]
