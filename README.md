@@ -11,8 +11,6 @@
 ![GitHub last commit](https://img.shields.io/github/last-commit/vengroff/impactchart)
 [![Tests Badge](./reports/junit/tests-badge.svg)](https://vengroff.github.io/impactchart/)
 [![Coverage Badge](./reports/coverage/coverage-badge.svg)](https://vengroff.github.io/impactchart/)
-[![Documentation Status](https://readthedocs.org/projects/impactchart/badge/?version=latest)](https://impactchart.readthedocs.io/en/latest/?badge=latest)
-
 
 `impactchart` is a Python library for generating impact charts.
 
