@@ -291,6 +291,15 @@ class ImpactModel(ABC):
 
         return df_y_hat
 
+    def mean_predicttion(self, X: pd.DataFrame) -> pd.Series:
+        df_y_hat = self.predict(X)
+
+        mean_y_hat = df_y_hat.groupby("X_index")["y_hat"].mean()
+
+        mean_y_hat.index.name = X.index.name
+
+        return mean_y_hat
+
     @staticmethod
     def _masker(X: pd.DataFrame) -> shap.maskers.Masker:
         """
@@ -405,6 +414,54 @@ class ImpactModel(ABC):
         )
 
         return df_buckets
+
+    def y_prime(
+        self,
+        X: pd.DataFrame,
+        z_cols: Iterable[str],
+        *,
+        y: Optional[pd.Series] = None,
+    ) -> pd.Series:
+        """
+        Compute the repaired y values we should use for fitting a
+        restorative model.
+
+        Parameters
+        ----------
+        X
+            The features to use for fitting the restorative model.
+        z_cols
+            The names of the protected features that we want to
+            have no impact on the predictions of the revised model.
+        y
+            If given, these are the y values observed along with the
+            X values. If not, then we will compute the y's based on
+            what the fitted ensemble of models predicts (i.e. the
+            return value of `self.predict(X)`. This is the base value
+            that we will start with before restoring the impact of
+            the protected features in `zcols`.
+        Returns
+        -------
+        y_prime
+            The y values we should use to fit a restorative model
+            that so that protected features have little or no impact.
+        """
+        z_cols = set(z_cols)
+
+        if y is not None:
+            y_prime = y.copy()
+        else:
+            y_prime = self.mean_predicttion(X)
+
+        y_prime.name = "y_prime"
+
+        df_mean_impact = self.mean_impact(X)
+
+        for col in df_mean_impact.columns:
+            if col in z_cols:
+                y_prime = y_prime - df_mean_impact[col]
+
+        return y_prime
 
     def _plot_id(self, feature: str, n: int):
         if isinstance(self._initial_random_state, int):
