@@ -375,9 +375,7 @@ class RestorativeTestCase(unittest.TestCase):
     @staticmethod
     def _save_impact_charts(impact_charts, dir_name: str):
         """Save some impact charts to files for debugging."""
-        output_dir = (
-                Path(__file__).parent / "_test_artifacts" / dir_name
-        )
+        output_dir = Path(__file__).parent / "_test_artifacts" / dir_name
         output_dir.mkdir(parents=True, exist_ok=True)
         for feature, (fig, ax) in impact_charts.items():
             fig.savefig(output_dir / f"{feature}.png")
@@ -406,7 +404,7 @@ class RestorativeTestCase(unittest.TestCase):
         y_prime = self._impact_model.y_prime(self._X, self.z_cols)
 
         restorative_impact_model = imm.LinearImpactModel(
-            ensemble_size=self._k, random_state=17*17*17*17
+            ensemble_size=self._k, random_state=17 * 17 * 17 * 17
         )
 
         restorative_impact_model.fit(X=self._X, y=y_prime)
@@ -420,13 +418,17 @@ class RestorativeTestCase(unittest.TestCase):
         zeroes = pd.Series(0.0, index=df_impact.index)
 
         # No impact from the protected features.
-        pd.testing.assert_series_equal(zeroes, df_impact['X1'], atol=0.01, check_names=False)
-        pd.testing.assert_series_equal(zeroes, df_impact['X2'], atol=0.01, check_names=False)
+        pd.testing.assert_series_equal(
+            zeroes, df_impact["X1"], atol=0.01, check_names=False
+        )
+        pd.testing.assert_series_equal(
+            zeroes, df_impact["X2"], atol=0.01, check_names=False
+        )
 
         # Impact from the non-protected features should almost always deviate
         # from zero. The mean absolute error should be positive.
-        self.assertAlmostEqual(df_impact['X0'].abs().mean(), 2.546, places=3)
-        self.assertAlmostEqual(df_impact['X3'].abs().mean(), 10.201, places=3)
+        self.assertAlmostEqual(df_impact["X0"].abs().mean(), 2.546, places=3)
+        self.assertAlmostEqual(df_impact["X3"].abs().mean(), 10.201, places=3)
 
 
 if __name__ == "__main__":
