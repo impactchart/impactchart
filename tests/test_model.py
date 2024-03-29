@@ -342,5 +342,94 @@ class KnnTestCase(ImpactChartTestCase):
             self.assert_structurally_similar(expected_file, output_file)
 
 
+class RestorativeTestCase(unittest.TestCase):
+    def setUp(self):
+        self._n = 190
+        self._k = 10
+
+        generator = np.random.default_rng(773)
+        self._X = pd.DataFrame(
+            {
+                "X0": generator.uniform(0, 10, self._n),
+                "X1": generator.uniform(0, 10, self._n),
+                "X2": generator.uniform(0, 10, self._n),
+                "X3": generator.uniform(0, 10, self._n),
+            }
+        )
+
+        self._y = (
+            1.0 * self._X["X0"]
+            - 2.0 * self._X["X1"]
+            + 3.0 * self._X["X2"]
+            - 4.0 * self._X["X3"]
+        )
+
+        self.z_cols = ["X1", "X2"]
+
+        self._impact_model = imm.LinearImpactModel(
+            ensemble_size=self._k, random_state=17
+        )
+
+        self._impact_model.fit(X=self._X, y=self._y)
+
+    @staticmethod
+    def _save_impact_charts(impact_charts, dir_name: str):
+        """Save some impact charts to files for debugging."""
+        output_dir = Path(__file__).parent / "_test_artifacts" / dir_name
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for feature, (fig, ax) in impact_charts.items():
+            fig.savefig(output_dir / f"{feature}.png")
+
+    def test_y_prime(self):
+        # Generate some impact charts. This is really just for visual debugging
+        # purposes.
+
+        impact_charts = self._impact_model.impact_charts(self._X)
+
+        self._save_impact_charts(impact_charts, "restorative_impact_charts")
+
+        # Now the real testing.
+
+        y_prime = self._impact_model.y_prime(self._X, self.z_cols)
+
+        delta_y = y_prime - self._y
+
+        expected_delta_y = 2.0 * (self._X["X1"] - self._X["X1"].mean()) - 3.0 * (
+            self._X["X2"] - self._X["X2"].mean()
+        )
+
+        pd.testing.assert_series_equal(expected_delta_y, delta_y, atol=0.01)
+
+    def test_post_impact(self):
+        y_prime = self._impact_model.y_prime(self._X, self.z_cols)
+
+        restorative_impact_model = imm.LinearImpactModel(
+            ensemble_size=self._k, random_state=17 * 17 * 17 * 17
+        )
+
+        restorative_impact_model.fit(X=self._X, y=y_prime)
+
+        # Drop the impact charts into some files for debugging purposes.
+        impact_charts = restorative_impact_model.impact_charts(self._X)
+        self._save_impact_charts(impact_charts, "restored_impact_charts")
+
+        df_impact = restorative_impact_model.mean_impact(self._X)
+
+        zeroes = pd.Series(0.0, index=df_impact.index)
+
+        # No impact from the protected features.
+        pd.testing.assert_series_equal(
+            zeroes, df_impact["X1"], atol=0.01, check_names=False
+        )
+        pd.testing.assert_series_equal(
+            zeroes, df_impact["X2"], atol=0.01, check_names=False
+        )
+
+        # Impact from the non-protected features should almost always deviate
+        # from zero. The mean absolute error should be positive.
+        self.assertAlmostEqual(df_impact["X0"].abs().mean(), 2.546, places=3)
+        self.assertAlmostEqual(df_impact["X3"].abs().mean(), 10.201, places=3)
+
+
 if __name__ == "__main__":
     unittest.main()

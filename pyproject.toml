@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "impactchart"
-version = "0.4.3"
+version = "0.4.4"
 description = "A package for generating impact charts."
 license = "HL3-CL-ECO-EXTR-FFD-LAW-MIL-SV"
 authors = ["Darren Vengroff"]
@@ -20,7 +20,7 @@ classifiers = [
 [tool.poetry.dependencies]
 python = "^3.11"
 logargparser = "^0.1.1"
-shap = "^0.44.1"
+shap = "^0.45.0"
 xgboost = "^2.0.3"
 matplotlib = "^3.8.2"
 PyYAML = "^6.0"
