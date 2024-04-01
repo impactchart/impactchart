@@ -14,7 +14,7 @@ import pandas as pd
 import shap.maskers
 from matplotlib.ticker import Formatter, FuncFormatter, PercentFormatter
 from scipy import stats
-from shap import Explainer
+from shap import Explainer, TreeExplainer
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import RandomizedSearchCV
@@ -145,6 +145,9 @@ class ImpactModel(ABC):
                 sample_weight=sample_weight,
                 optimization_scoring_metric=optimization_scoring_metric,
             )
+            # Put the estimator kwargs back in. Mainly for things like
+            # enable_categorical=True.
+            params |= self._estimator_kwargs
         else:
             params = self._estimator_kwargs
 
@@ -321,6 +324,13 @@ class ImpactModel(ABC):
         """
         return "auto"
 
+    def explainer(self, estimator, X: pd.DataFrame):
+        return Explainer(
+            estimator,
+            masker=self._masker(X),
+            algorithm=self.explainer_algorithm,
+        )
+
     def _estimator_impact(
         self, X: pd.DataFrame, estimator, estimator_id
     ) -> pd.DataFrame:
@@ -342,11 +352,7 @@ class ImpactModel(ABC):
             column with the value we were given, for identification purposes.
         """
         df = pd.DataFrame(
-            Explainer(
-                estimator,
-                masker=self._masker(X),
-                algorithm=self.explainer_algorithm,
-            )(X).values,
+            self.explainer(estimator, X)(X).values,
             columns=X.columns,
         )
         df["estimator"] = estimator_id
@@ -498,7 +504,11 @@ class ImpactModel(ABC):
     }
 
     @classmethod
-    def _axis_formatter(cls, formatter: Formatter | str) -> Formatter:
+    def _axis_formatter(
+        cls, formatter: Optional[Formatter | str] = None
+    ) -> Formatter | None:
+        if formatter is None:
+            return None
         if isinstance(formatter, Formatter):
             return formatter
         else:
@@ -518,7 +528,7 @@ class ImpactModel(ABC):
         feature_names: Optional[Callable[[str], str] | Mapping[str, str]] = None,
         y_name: Optional[str] = None,
         subtitle: Optional[str] = None,
-        y_formatter: str = "comma",
+        y_formatter: Optional[str] = None,
         x_formatter_default: str = "comma",
         x_formatters: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Tuple[plt.Figure, plt.Axes]]:
@@ -667,12 +677,16 @@ class ImpactModel(ABC):
                 handle._sizes = [25]
 
             # Format the axes.
-            ax.yaxis.set_major_formatter(self._axis_formatter(y_formatter))
+            y_axis_formatter = self._axis_formatter(y_formatter)
+            if y_axis_formatter is not None:
+                ax.yaxis.set_major_formatter(y_axis_formatter)
             if x_formatters is not None and feature in x_formatters:
                 x_formatter = x_formatters[feature]
             else:
                 x_formatter = x_formatter_default
-            ax.xaxis.set_major_formatter(self._axis_formatter(x_formatter))
+            x_axis_formatter = self._axis_formatter(x_formatter)
+            if x_axis_formatter is not None:
+                ax.xaxis.set_major_formatter(x_axis_formatter)
 
             if self._plot_id is not None:
                 plot_id = self._plot_id_string(feature, len(X.index))
@@ -793,6 +807,27 @@ class XGBoostImpactModel(ImpactModel):
 
     def estimator(self, **kwargs) -> BaseEstimator:
         return XGBRegressor(**kwargs)
+
+    def explainer(self, estimator, X: pd.DataFrame):
+        has_categorical_features = False
+
+        for col in X.columns:
+            if X[col].dtype == "category":
+                has_categorical_features = True
+                break
+
+        if has_categorical_features:
+            # When categorical features are present, we have to uss
+            # feature_perturbation="tree_path_dependent".
+            return TreeExplainer(estimator, feature_perturbation="tree_path_dependent")
+        else:
+            # Otherwise, we will use the default feature_perturbation="interventional",
+            # which will run slower but will do causal inference. A sample of 1,000
+            # rows should be sufficient and will reduce large runtime overhead.
+            if len(X.index) > 1000:
+                X = X.sample(n=1000, random_state=self.initial_random_state)
+
+            return TreeExplainer(estimator, X, feature_perturbation="interventional")
 
     def optimize_hyperparameters(
         self,
