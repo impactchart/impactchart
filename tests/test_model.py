@@ -1,5 +1,4 @@
 import unittest
-from abc import ABCMeta
 from pathlib import Path
 from shutil import rmtree
 
