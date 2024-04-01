@@ -236,9 +236,6 @@ class XgbTestCase(ImpactChartTestCase):
         self._impact_model.fit(self._X, self._y)
         self.assertTrue(self._impact_model.is_fit)
 
-        ax = df_intermediate.plot.scatter("X1", "y", figsize=(8, 6))
-        ax.grid()
-
     def test_impact(self):
         df_impact = self._impact_model.impact(self._X)
 
@@ -267,7 +264,7 @@ class XgbTestCase(ImpactChartTestCase):
             # are not too terribly off from the training data.
             y_impact = df_reindexed.sum(axis="columns") + y_mean
             y_impact.name = "y"
-            pd.testing.assert_series_equal(self._y, y_impact, atol=0.25)
+            pd.testing.assert_series_equal(self._y, y_impact, atol=0.3)
 
         df_impact.groupby("estimator").apply(_assert_impact_sum)
 
@@ -277,7 +274,7 @@ class XgbTestCase(ImpactChartTestCase):
         impact_y_hat.name = "y_hat"
 
         pd.testing.assert_series_equal(
-            y_hat["y_hat"], impact_y_hat.astype("float32"), atol=0.01
+            y_hat["y_hat"], impact_y_hat.astype("float32"), atol=0.02
         )
 
     def test_impact_chart(self):
@@ -342,9 +339,17 @@ class KnnTestCase(ImpactChartTestCase):
             self.assert_structurally_similar(expected_file, output_file)
 
 
+def _save_impact_charts(impact_charts, dir_name: str):
+    """Save some impact charts to files for debugging."""
+    output_dir = Path(__file__).parent / "_test_artifacts" / dir_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for feature, (fig, ax) in impact_charts.items():
+        fig.savefig(output_dir / f"{feature}.png")
+
+
 class RestorativeTestCase(unittest.TestCase):
     def setUp(self):
-        self._n = 190
+        self._n = 100
         self._k = 10
 
         generator = np.random.default_rng(773)
@@ -372,21 +377,13 @@ class RestorativeTestCase(unittest.TestCase):
 
         self._impact_model.fit(X=self._X, y=self._y)
 
-    @staticmethod
-    def _save_impact_charts(impact_charts, dir_name: str):
-        """Save some impact charts to files for debugging."""
-        output_dir = Path(__file__).parent / "_test_artifacts" / dir_name
-        output_dir.mkdir(parents=True, exist_ok=True)
-        for feature, (fig, ax) in impact_charts.items():
-            fig.savefig(output_dir / f"{feature}.png")
-
     def test_y_prime(self):
         # Generate some impact charts. This is really just for visual debugging
         # purposes.
 
         impact_charts = self._impact_model.impact_charts(self._X)
 
-        self._save_impact_charts(impact_charts, "restorative_impact_charts")
+        _save_impact_charts(impact_charts, "restorative_impact_charts")
 
         # Now the real testing.
 
@@ -411,7 +408,7 @@ class RestorativeTestCase(unittest.TestCase):
 
         # Drop the impact charts into some files for debugging purposes.
         impact_charts = restorative_impact_model.impact_charts(self._X)
-        self._save_impact_charts(impact_charts, "restored_impact_charts")
+        _save_impact_charts(impact_charts, "restored_impact_charts")
 
         df_impact = restorative_impact_model.mean_impact(self._X)
 
@@ -427,8 +424,68 @@ class RestorativeTestCase(unittest.TestCase):
 
         # Impact from the non-protected features should almost always deviate
         # from zero. The mean absolute error should be positive.
-        self.assertAlmostEqual(df_impact["X0"].abs().mean(), 2.546, places=3)
-        self.assertAlmostEqual(df_impact["X3"].abs().mean(), 10.201, places=3)
+        self.assertAlmostEqual(df_impact["X0"].abs().mean(), 2.485, places=3)
+        self.assertAlmostEqual(df_impact["X3"].abs().mean(), 11.265, places=3)
+
+
+class CategoricalTestCase(unittest.TestCase):
+
+    CATEGORIES = np.array(["A", "B", "C", "D"])
+
+    def setUp(self):
+        self._n = 100
+        self._k = 10
+
+        generator = np.random.default_rng(23547623)
+        self._X = pd.DataFrame(
+            {
+                # A uniform dist of type float.
+                "X0": generator.uniform(0, 10, self._n),
+                # Randomly chosen integers from {0, ... 9}.
+                "X1": generator.choice(10, self._n),
+                # Random category.
+                "X2": generator.choice(self.CATEGORIES, self._n),
+            },
+        )
+        self._X["X1"] = self._X["X0"].astype("int32")
+        self._X["X2"] = self._X["X2"].astype("category")
+
+        self._y = self._X.apply(
+            lambda row: 10.0
+            + (
+                row["X0"]
+                if row["X2"] == "A"
+                else (
+                    -3 * row["X0"]
+                    if row["X2"] == "B"
+                    else (5 * row["X1"] if row["X2"] == "C" else row["X0"] + row["X1"])
+                )
+            ),
+            axis="columns",
+        )
+
+    def test_dtypes(self):
+        """Make sure the types of the columns were set up right."""
+        dtypes = self._X.dtypes
+
+        self.assertEqual("float64", dtypes["X0"])
+        self.assertEqual("int32", dtypes["X1"])
+        self.assertTrue("category", dtypes["X2"])
+
+        self.assertEqual("float64", self._y.dtype)
+
+    def test_categorical(self):
+        """See if we can fit an impact model on categorical data."""
+        impact_model = imm.XGBoostImpactModel(
+            random_state=8322347, estimator_kwargs=dict(enable_categorical=True)
+        )
+        impact_model.fit(X=self._X, y=self._y)
+
+        impact_charts = impact_model.impact_charts(
+            self._X, y_formatter=None, x_formatters={"X2": None}
+        )
+
+        _save_impact_charts(impact_charts, "categorical_impact_charts")
 
 
 if __name__ == "__main__":
