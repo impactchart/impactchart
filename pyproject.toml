@@ -34,7 +34,7 @@ scikit-image = "^0.22.0"
 
 [tool.poetry.group.lint.dependencies]
 flake8 = "^7.0.0"
-black = "^24.1.1"
+black = "^24.3.0"
 isort = "^5.13.2"
 
 [tool.poetry.group.dist.dependencies]

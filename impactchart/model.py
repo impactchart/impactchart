@@ -827,7 +827,10 @@ class XGBoostImpactModel(ImpactModel):
             # which will run slower but will do causal inference. A sample of 1,000
             # rows should be sufficient and will reduce large runtime overhead.
             if len(X.index) > self._interventional_feature_max:
-                X = X.sample(n=self._interventional_feature_max, random_state=self.initial_random_state)
+                X = X.sample(
+                    n=self._interventional_feature_max,
+                    random_state=self.initial_random_state,
+                )
 
             return TreeExplainer(estimator, X, feature_perturbation="interventional")
 
