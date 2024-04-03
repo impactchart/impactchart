@@ -529,7 +529,7 @@ class ImpactModel(ABC):
         y_name: Optional[str] = None,
         subtitle: Optional[str] = None,
         y_formatter: Optional[str] = None,
-        x_formatter_default: str = "comma",
+        x_formatter_default: Optional[str] = None,
         x_formatters: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Tuple[plt.Figure, plt.Axes]]:
         """
@@ -794,6 +794,7 @@ class XGBoostImpactModel(ImpactModel):
         estimator_kwargs: Optional[Dict[str, Any]] = None,
         optimize_hyperparameters: bool = True,
         parameter_distributions: Optional[Dict[str, Any]] = None,
+        interventional_feature_max: int = 1000,
     ):
         super().__init__(
             ensemble_size=ensemble_size,
@@ -804,6 +805,7 @@ class XGBoostImpactModel(ImpactModel):
         )
 
         self._parameter_distributions = parameter_distributions
+        self._interventional_feature_max = interventional_feature_max
 
     def estimator(self, **kwargs) -> BaseEstimator:
         return XGBRegressor(**kwargs)
@@ -824,8 +826,8 @@ class XGBoostImpactModel(ImpactModel):
             # Otherwise, we will use the default feature_perturbation="interventional",
             # which will run slower but will do causal inference. A sample of 1,000
             # rows should be sufficient and will reduce large runtime overhead.
-            if len(X.index) > 1000:
-                X = X.sample(n=1000, random_state=self.initial_random_state)
+            if len(X.index) > self._interventional_feature_max:
+                X = X.sample(n=self._interventional_feature_max, random_state=self.initial_random_state)
 
             return TreeExplainer(estimator, X, feature_perturbation="interventional")
 
