@@ -16,6 +16,8 @@
 
 ## What are Impact Charts?
 
+(See also the [ACM FAccT paper](https://facctconference.org/static/papers24/facct24-80.pdf) for more background and details.)
+
 Impact charts make it easy to take a data set and visualize the impact of one variable 
 on another in ways that techniques like scatter plots and linear regression can't, 
 especially when there are other variables involved. 
