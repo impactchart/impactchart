@@ -21,6 +21,9 @@ from sklearn.model_selection import RandomizedSearchCV
 from sklearn.neighbors import KNeighborsRegressor
 from xgboost import XGBRegressor
 
+from impactchart.backend import Backend
+from impactchart.backend.matplotlib import MatplotlibBackend
+
 
 class ImpactModel(ABC):
     """
@@ -488,6 +491,77 @@ class ImpactModel(ABC):
             msg += "s = None"
 
         return f"({msg})"
+
+    def charts(
+            self,
+            X: pd.DataFrame,
+            features: Optional[Iterable[str]] = None,
+            *,
+            marker_size: float = 4.0,
+            color: str = "darkgreen",
+            ensemble_marker_size: float = 2.0,
+            ensemble_color: str = "lightgray",
+            feature_names: Optional[Callable[[str], str] | Mapping[str, str]] = None,
+            y_name: Optional[str] = None,
+            subtitle: Optional[str] = None,
+
+            backend: Optional[Backend] = None
+    ) -> Dict[str, Any]:
+        backend = MatplotlibBackend() if backend is None else backend
+
+        df_impact = self.impact(X)
+
+        # We want to scale the y axis of all of the charts the same,
+        # based on the global min and max impact, so we can easily
+        # compare them visually.
+        min_impact = df_impact[features].min(axis="columns").min(axis="rows")
+        max_impact = df_impact[features].max(axis="columns").max(axis="rows")
+
+        impact_span = max_impact - min_impact
+
+        max_impact = max_impact + 0.05 * impact_span
+        min_impact = min_impact - 0.05 * impact_span
+
+        impacts = {}
+
+        features = list(features)
+
+        if feature_names is None:
+            # We got not mapping or function, so just use the feature name.
+            def feature_name_func(f):
+                return f
+
+        elif callable(feature_names):
+            # We got a callable
+            feature_name_func = feature_names
+        else:
+            # Expect it to be a map.
+            def feature_name_func(f):
+                return feature_names[f]
+
+        for feature in features:
+            # Only label the first series with ensemble
+            # impact so the legend stays just two entries.
+            ensemble_impact_label = "Impact of Individual Models"
+
+            feature_name = feature_name_func(feature)
+
+            impacts[feature_name] = backend.plot(
+                X,
+                df_impact,
+                feature,
+                feature_name=feature_name,
+                min_impact=min_impact,
+                max_impact=max_impact,
+                marker_size=marker_size,
+                ensemble_marker_size=ensemble_marker_size,
+                color=color,
+                ensemble_color=ensemble_color,
+                y_name=y_name,
+                subtitle=subtitle
+            )
+
+        return impacts
 
     _dollar_formatter = FuncFormatter(
         lambda d, pos: f"\\${d:,.0f}" if d >= 0 else f"(\\${-d:,.0f})"
