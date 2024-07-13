@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import shap.maskers
+from docutils.nodes import subtitle
 from matplotlib.ticker import Formatter, FuncFormatter, PercentFormatter
 from scipy import stats
 from shap import Explainer, TreeExplainer
@@ -511,6 +512,11 @@ class ImpactModel(ABC):
 
         df_impact = self.impact(X)
 
+        if features is None:
+            features = X.columns
+
+        features = list(features)
+
         # We want to scale the y axis of all of the charts the same,
         # based on the global min and max impact, so we can easily
         # compare them visually.
@@ -523,8 +529,6 @@ class ImpactModel(ABC):
         min_impact = min_impact - 0.05 * impact_span
 
         impacts = {}
-
-        features = list(features)
 
         if feature_names is None:
             # We got not mapping or function, so just use the feature name.
@@ -546,7 +550,10 @@ class ImpactModel(ABC):
 
             feature_name = feature_name_func(feature)
 
-            impacts[feature_name] = backend.plot(
+            if self._plot_id is not None:
+                plot_id = self._plot_id_string(feature, len(X.index))
+
+            impacts[feature] = backend.plot(
                 X,
                 df_impact,
                 feature,
@@ -558,7 +565,8 @@ class ImpactModel(ABC):
                 color=color,
                 ensemble_color=ensemble_color,
                 y_name=y_name,
-                subtitle=subtitle
+                subtitle=subtitle,
+                plot_id=plot_id
             )
 
         return impacts
@@ -646,6 +654,26 @@ class ImpactModel(ABC):
             A dictionary whose key is the name of the features and whose values
             are tuples of `fiq` and `ax` for the plot for that feature.
         """
+        return self.charts(
+            X,
+            features,
+            marker_size=markersize,
+            color=color,
+            ensemble_marker_size=ensemble_markersize,
+            ensemble_color=ensemble_color,
+            feature_names=feature_names,
+            y_name=y_name,
+            subtitle=subtitle,
+            backend=MatplotlibBackend(
+                plot_kwargs=plot_kwargs,
+                subplots_kwargs=subplots_kwargs,
+                y_formatter=y_formatter,
+                x_formatters=x_formatters,
+                x_formatter_default=x_formatter_default
+            )
+        )
+
+
         if features is None:
             features = X.columns
 
