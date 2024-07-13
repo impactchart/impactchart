@@ -149,6 +149,18 @@ class LinearModelTestCase(ImpactChartTestCase):
         pd.testing.assert_series_equal(y_hat["y_hat"], impact_y_hat, atol=0.05)
 
     def test_impact_chart(self):
+        charts = self._linear.impact_charts(self._X, self._X.columns)
+        for feature, (fig, ax) in charts.items():
+            png_file_name = f"impact_linear_{feature}.png"
+            expected_file = self.expected_dir / png_file_name
+            output_file = self.output_dir / png_file_name
+
+            ax.set_ylim(-20, 20)
+            fig.savefig(output_file)
+
+            self.assert_structurally_similar(expected_file, output_file)
+
+    def test_charts(self):
         charts = self._linear.charts(self._X, self._X.columns)
         for feature, (fig, ax) in charts.items():
             png_file_name = f"impact_linear_{feature}.png"
