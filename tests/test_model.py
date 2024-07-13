@@ -278,7 +278,27 @@ class XgbTestCase(ImpactChartTestCase):
         )
 
     def test_impact_chart(self):
+        """Test using the older impact_charts() API."""
         charts = self._impact_model.impact_charts(
+            self._X,
+            self._X.columns,
+            feature_names=lambda x: f"Name of {x}",
+        )
+
+        for feature, (fig, ax) in charts.items():
+            png_file_name = f"impact_xgb_{feature}.png"
+            expected_file = self.expected_dir / png_file_name
+            output_file = self.output_dir / png_file_name
+
+            ax.set_ylim(-1, 1)
+            fig.savefig(output_file)
+
+            self.assert_structurally_similar(expected_file, output_file)
+
+    def test_charts(self):
+        """Test using the charts() API."""
+
+        charts = self._impact_model.charts(
             self._X,
             self._X.columns,
             feature_names=lambda x: f"Name of {x}",
