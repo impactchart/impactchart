@@ -6,13 +6,10 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
-import textwrap
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import shap.maskers
-from docutils.nodes import subtitle
 from matplotlib.ticker import Formatter, FuncFormatter, PercentFormatter
 from scipy import stats
 from shap import Explainer, TreeExplainer
@@ -494,18 +491,18 @@ class ImpactModel(ABC):
         return f"({msg})"
 
     def charts(
-            self,
-            X: pd.DataFrame,
-            features: Optional[Iterable[str]] = None,
-            *,
-            marker_size: float = 4.0,
-            color: str = "darkgreen",
-            ensemble_marker_size: float = 2.0,
-            ensemble_color: str = "lightgray",
-            feature_names: Optional[Callable[[str], str] | Mapping[str, str]] = None,
-            y_name: Optional[str] = None,
-            subtitle: Optional[str] = None,
-            backend: Optional[Backend] = None,
+        self,
+        X: pd.DataFrame,
+        features: Optional[Iterable[str]] = None,
+        *,
+        marker_size: float = 4.0,
+        color: str = "darkgreen",
+        ensemble_marker_size: float = 2.0,
+        ensemble_color: str = "lightgray",
+        feature_names: Optional[Callable[[str], str] | Mapping[str, str]] = None,
+        y_name: Optional[str] = None,
+        subtitle: Optional[str] = None,
+        backend: Optional[Backend] = None,
     ) -> Dict[str, Any]:
         backend = MatplotlibBackend() if backend is None else backend
 
@@ -543,10 +540,6 @@ class ImpactModel(ABC):
                 return feature_names[f]
 
         for feature in features:
-            # Only label the first series with ensemble
-            # impact so the legend stays just two entries.
-            ensemble_impact_label = "Impact of Individual Models"
-
             feature_name = feature_name_func(feature)
 
             if self._plot_id is not None:
@@ -565,7 +558,7 @@ class ImpactModel(ABC):
                 ensemble_color=ensemble_color,
                 y_name=y_name,
                 subtitle=subtitle,
-                plot_id=plot_id
+                plot_id=plot_id,
             )
 
         return impacts
@@ -668,8 +661,8 @@ class ImpactModel(ABC):
                 subplots_kwargs=subplots_kwargs,
                 y_formatter=y_formatter,
                 x_formatters=x_formatters,
-                x_formatter_default=x_formatter_default
-            )
+                x_formatter_default=x_formatter_default,
+            ),
         )
 
     def impact_chart(

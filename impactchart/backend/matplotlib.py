@@ -52,21 +52,21 @@ class MatplotlibBackend(Backend):
             return cls._formatter_for_arg_value[formatter]
 
     def plot(
-            self,
-            X: pd.DataFrame,
-            df_impact: pd.DataFrame,
-            feature: str,
-            feature_name: str,
-            *,
-            min_impact: float,
-            max_impact: float,
-            marker_size: float,
-            ensemble_marker_size: float,
-            color: str,
-            ensemble_color: str,
-            y_name: Optional[str] = None,
-            subtitle: Optional[str] = None,
-            plot_id: Optional[str] = None,
+        self,
+        X: pd.DataFrame,
+        df_impact: pd.DataFrame,
+        feature: str,
+        feature_name: str,
+        *,
+        min_impact: float,
+        max_impact: float,
+        marker_size: float,
+        ensemble_marker_size: float,
+        color: str,
+        ensemble_color: str,
+        y_name: Optional[str] = None,
+        subtitle: Optional[str] = None,
+        plot_id: Optional[str] = None,
     ):
         fig, ax = plt.subplots(**self._subplots_kwargs)
 
@@ -87,7 +87,6 @@ class MatplotlibBackend(Backend):
                 label=ensemble_impact_label,
                 **self._plot_kwargs,
             )
-            plot_kwargs = {}
             ensemble_impact_label = None
 
         df_impact.groupby("estimator")[["X_index", feature]].apply(
