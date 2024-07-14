@@ -11,40 +11,40 @@ class Backend(ABC):
 
     @abstractmethod
     def end(
-            self,
-            *,
-            feature: str,
-            feature_name: str,
-            min_impact: float,
-            max_impact: float,
-            y_name: Optional[str] = None,
-            subtitle: Optional[str] = None,
-            plot_id: Optional[str] = None,
+        self,
+        *,
+        feature: str,
+        feature_name: str,
+        min_impact: float,
+        max_impact: float,
+        y_name: Optional[str] = None,
+        subtitle: Optional[str] = None,
+        plot_id: Optional[str] = None,
     ):
         raise NotImplementedError("Please use a concrete class.")
 
     @abstractmethod
     def plot_ensemble_member_impact(
-            self,
-            x_feature: pd.Series,
-            impact: pd.Series,
-            index: int,
-            *,
-            feature_name: Optional[str] = None,
-            ensemble_marker_size: float,
-            ensemble_color: str,
+        self,
+        x_feature: pd.Series,
+        impact: pd.Series,
+        index: int,
+        *,
+        feature_name: Optional[str] = None,
+        ensemble_marker_size: float,
+        ensemble_color: str,
     ):
         raise NotImplementedError("Please use a concrete class.")
 
     @abstractmethod
     def plot_mean_impact(
-            self,
-            x_feature: pd.Series,
-            mean_impact: pd.Series,
-            *,
-            feature_name: Optional[str] = None,
-            marker_size: float,
-            color: str,
+        self,
+        x_feature: pd.Series,
+        mean_impact: pd.Series,
+        *,
+        feature_name: Optional[str] = None,
+        marker_size: float,
+        color: str,
     ):
         raise NotImplementedError("Please use a concrete class.")
 

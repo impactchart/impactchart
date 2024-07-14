@@ -62,14 +62,14 @@ class MatplotlibBackend(Backend):
         self._ensemble_impact_label = "Impact of Individual Models"
 
     def plot_ensemble_member_impact(
-            self,
-            x_feature: pd.Series,
-            impact: pd.Series,
-            index: int,
-            *,
-            feature_name: Optional[str] = None,
-            ensemble_marker_size: float,
-            ensemble_color: str,
+        self,
+        x_feature: pd.Series,
+        impact: pd.Series,
+        index: int,
+        *,
+        feature_name: Optional[str] = None,
+        ensemble_marker_size: float,
+        ensemble_color: str,
     ):
         self._ax.plot(
             x_feature,
@@ -83,13 +83,13 @@ class MatplotlibBackend(Backend):
         self._ensemble_impact_label = None
 
     def plot_mean_impact(
-            self,
-            x_feature: pd.Series,
-            mean_impact: pd.Series,
-            *,
-            feature_name: Optional[str] = None,
-            marker_size: float,
-            color: str,
+        self,
+        x_feature: pd.Series,
+        mean_impact: pd.Series,
+        *,
+        feature_name: Optional[str] = None,
+        marker_size: float,
+        color: str,
     ):
         self._ax.plot(
             x_feature,
@@ -101,15 +101,15 @@ class MatplotlibBackend(Backend):
         )
 
     def end(
-            self,
-            *,
-            feature: str,
-            feature_name: str,
-            min_impact: float,
-            max_impact: float,
-            y_name: Optional[str] = None,
-            subtitle: Optional[str] = None,
-            plot_id: Optional[str] = None,
+        self,
+        *,
+        feature: str,
+        feature_name: str,
+        min_impact: float,
+        max_impact: float,
+        y_name: Optional[str] = None,
+        subtitle: Optional[str] = None,
+        plot_id: Optional[str] = None,
     ):
         # Do some basic labels and styling.
         self._ax.set_ylim(min_impact, max_impact)
