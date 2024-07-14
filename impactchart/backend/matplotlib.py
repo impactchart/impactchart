@@ -26,6 +26,11 @@ class MatplotlibBackend(Backend):
         self._x_formatter_default = x_formatter_default
         self._x_formatters = x_formatters or {}
 
+        # These will get set up by begin().
+        self._fig = None
+        self._ax = None
+        self._ensemble_impact_label = None
+
     _dollar_formatter = FuncFormatter(
         lambda d, pos: f"\\${d:,.0f}" if d >= 0 else f"(\\${-d:,.0f})"
     )
@@ -51,52 +56,43 @@ class MatplotlibBackend(Backend):
         else:
             return cls._formatter_for_arg_value[formatter]
 
-    def plot(
-        self,
-        X: pd.DataFrame,
-        df_impact: pd.DataFrame,
-        feature: str,
-        feature_name: str,
-        *,
-        min_impact: float,
-        max_impact: float,
-        marker_size: float,
-        ensemble_marker_size: float,
-        color: str,
-        ensemble_color: str,
-        y_name: Optional[str] = None,
-        subtitle: Optional[str] = None,
-        plot_id: Optional[str] = None,
+    def begin(self):
+        self._fig, self._ax = plt.subplots(**self._subplots_kwargs)
+
+        self._ensemble_impact_label = "Impact of Individual Models"
+
+    def plot_ensemble_member_impact(
+            self,
+            x_feature: pd.Series,
+            impact: pd.Series,
+            index: int,
+            *,
+            feature_name: Optional[str] = None,
+            ensemble_marker_size: float,
+            ensemble_color: str,
     ):
-        fig, ax = plt.subplots(**self._subplots_kwargs)
-
-        ensemble_impact_label = "Impact of Individual Models"
-
-        def _plot_for_ensemble_member(df_group):
-            nonlocal ensemble_impact_label
-
-            plot_x = X[feature]
-            plot_y = df_group[feature]
-
-            ax.plot(
-                plot_x,
-                plot_y,
-                ".",
-                markersize=ensemble_marker_size,
-                color=ensemble_color,
-                label=ensemble_impact_label,
-                **self._plot_kwargs,
-            )
-            ensemble_impact_label = None
-
-        df_impact.groupby("estimator")[["X_index", feature]].apply(
-            _plot_for_ensemble_member
+        self._ax.plot(
+            x_feature,
+            impact,
+            ".",
+            markersize=ensemble_marker_size,
+            color=ensemble_color,
+            label=self._ensemble_impact_label,
+            **self._plot_kwargs,
         )
+        self._ensemble_impact_label = None
 
-        mean_impact = df_impact.groupby("X_index")[feature].mean()
-
-        ax.plot(
-            X[feature],
+    def plot_mean_impact(
+            self,
+            x_feature: pd.Series,
+            mean_impact: pd.Series,
+            *,
+            feature_name: Optional[str] = None,
+            marker_size: float,
+            color: str,
+    ):
+        self._ax.plot(
+            x_feature,
             mean_impact,
             ".",
             markersize=marker_size,
@@ -104,43 +100,54 @@ class MatplotlibBackend(Backend):
             label="Mean Impact",
         )
 
+    def end(
+            self,
+            *,
+            feature: str,
+            feature_name: str,
+            min_impact: float,
+            max_impact: float,
+            y_name: Optional[str] = None,
+            subtitle: Optional[str] = None,
+            plot_id: Optional[str] = None,
+    ):
         # Do some basic labels and styling.
-        ax.set_ylim(min_impact, max_impact)
+        self._ax.set_ylim(min_impact, max_impact)
 
         if y_name is not None:
             if subtitle is not None:
                 title = f"Impact of {feature_name} on {y_name}\n{subtitle}"
             else:
                 title = f"Impact of {feature_name} on {y_name}"
-            ax.set_ylabel(f"Impact on {y_name}")
+            self._ax.set_ylabel(f"Impact on {y_name}")
         else:
             if subtitle is not None:
                 title = f"Impact of {feature_name} {subtitle}"
             else:
                 title = f"Impact of {feature_name}"
-            ax.set_ylabel("Impact")
+            self._ax.set_ylabel("Impact")
 
-        ax.set_title(textwrap.fill(title, width=80))
-        ax.set_xlabel(feature_name)
-        ax.grid()
+        self._ax.set_title(textwrap.fill(title, width=80))
+        self._ax.set_xlabel(feature_name)
+        self._ax.grid()
 
-        for handle in ax.legend().legend_handles:
+        for handle in self._ax.legend().legend_handles:
             handle._sizes = [25]
 
         # Format the axes.
         y_axis_formatter = self._axis_formatter(self._y_formatter)
         if y_axis_formatter is not None:
-            ax.yaxis.set_major_formatter(y_axis_formatter)
+            self._ax.yaxis.set_major_formatter(y_axis_formatter)
         if self._x_formatters is not None and feature in self._x_formatters:
             x_formatter = self._x_formatters[feature]
         else:
             x_formatter = self._x_formatter_default
         x_axis_formatter = self._axis_formatter(x_formatter)
         if x_axis_formatter is not None:
-            ax.xaxis.set_major_formatter(x_axis_formatter)
+            self._ax.xaxis.set_major_formatter(x_axis_formatter)
 
         if plot_id is not None:
-            ax.text(
+            self._ax.text(
                 0.99,
                 0.02,
                 plot_id,
@@ -148,7 +155,7 @@ class MatplotlibBackend(Backend):
                 backgroundcolor="white",
                 horizontalalignment="right",
                 verticalalignment="bottom",
-                transform=ax.transAxes,
+                transform=self._ax.transAxes,
             )
 
-        return fig, ax
+        return self._fig, self._ax
