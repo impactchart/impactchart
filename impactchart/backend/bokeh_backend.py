@@ -3,6 +3,7 @@
 from typing import Optional
 
 import pandas as pd
+import textwrap
 
 from ..backend.base import Backend
 
@@ -16,7 +17,7 @@ try:
 except ImportError:
     raise ImportError(
         "In order to import bokeh_backend, bokeh must be installed. "
-        "If you pip installed impactchart, try `pip install impactchart[bokeh]` to enable interactive plots with bokeh."
+        "Try `pip install impactchart[bokeh]` to enable interactive plots with bokeh."
     )
 
 
@@ -24,10 +25,13 @@ class BokehBackend(Backend):
     """A backend that plots interactive impact charts with bokeh."""
 
     def __init__(self):
-        self._plot = None
+        self._bokeh_plot = None
+        self._ensemble_impact_label = None
 
     def begin(self):
-        self._plot = figure()
+        self._bokeh_plot = figure()
+
+        self._ensemble_impact_label = "Impact of Individual Models"
 
     def end(
         self,
@@ -40,7 +44,23 @@ class BokehBackend(Backend):
         subtitle: Optional[str] = None,
         plot_id: Optional[str] = None,
     ):
-        return self._plot
+        if y_name is not None:
+            if subtitle is not None:
+                title = f"Impact of {feature_name} on {y_name}\n{subtitle}"
+            else:
+                title = f"Impact of {feature_name} on {y_name}"
+            self._bokeh_plot.yaxis.axis_label = f"Impact on {y_name}"
+        else:
+            if subtitle is not None:
+                title = f"Impact of {feature_name} {subtitle}"
+            else:
+                title = f"Impact of {feature_name}"
+            self._bokeh_plot.yaxis.axis_label = "Impact"
+
+        self._bokeh_plot.title.text = textwrap.fill(title, width=80)
+        self._bokeh_plot.xaxis.axis_label = feature_name
+
+        return self._bokeh_plot
 
     def plot_ensemble_member_impact(
         self,
@@ -52,7 +72,23 @@ class BokehBackend(Backend):
         ensemble_marker_size: float,
         ensemble_color: str,
     ):
-        self._plot.scatter(x=x_feature, y=impact)
+        if self._ensemble_impact_label is not None:
+            self._bokeh_plot.scatter(
+                x=x_feature,
+                y=impact,
+                color=ensemble_color,
+                size=ensemble_marker_size,
+                legend_label=self._ensemble_impact_label,
+            )
+        else:
+            self._bokeh_plot.scatter(
+                x=x_feature,
+                y=impact,
+                color=ensemble_color,
+                size=ensemble_marker_size,
+            )
+
+        self._ensemble_impact_label = None
 
     def plot_mean_impact(
         self,
@@ -63,4 +99,10 @@ class BokehBackend(Backend):
         marker_size: float,
         color: str,
     ):
-        pass
+        self._bokeh_plot.scatter(
+            x=x_feature,
+            y=mean_impact,
+            color=color,
+            size=marker_size,
+            legend_label="Median Impact",
+        )
