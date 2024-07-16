@@ -22,6 +22,8 @@ from xgboost import XGBRegressor
 from impactchart.backend import Backend
 from impactchart.backend.matplotlib import MatplotlibBackend
 
+from deprecated import deprecated
+
 
 class ImpactModel(ABC):
     """
@@ -504,6 +506,37 @@ class ImpactModel(ABC):
         subtitle: Optional[str] = None,
         backend: Optional[Backend] = None,
     ) -> Dict[str, Any]:
+        """
+        Plot a series of impact charts, one for each feature.
+
+        Parameters
+        ----------
+        X
+            The features
+        features
+            The features to plot charts for.
+        feature_names
+            A map or callable that provides a friendly human-readable name for each feature.
+        marker_size
+            The size of markers for mean impacts,
+        ensemble_marker_size
+            The size of markers for impacts for individual members of the ensemble of models,
+        color
+            The color of markers for mean impacts,
+        ensemble_color
+            The color of markers for impacts for individual members of the ensemble of models,
+        y_name
+            The name of the target for the impact chart.
+        subtitle
+            An optional subtitle for the impact chart
+        backend
+            An optional backend. If not provided, a matplotlib backend is used.
+
+        Returns
+        -------
+            A map from feature to a backend-specific representation of the impact chart that
+            can be used to add further styling and display and/or save the chart.
+        """
         backend = MatplotlibBackend() if backend is None else backend
 
         df_impact = self.impact(X)
@@ -588,6 +621,10 @@ class ImpactModel(ABC):
         else:
             return cls._formatter_for_arg_value[formatter]
 
+    @deprecated(
+        version="0.6.0",
+        reason="Please use `charts` instead. The API is the same but an optional backend is supported."
+    )
     def impact_charts(
         self,
         X: pd.DataFrame,
@@ -641,6 +678,7 @@ class ImpactModel(ABC):
             Same allowed values as `y_formatter`.
         x_formatters:
             A dictionary of how to format the x axis values. Keys are the features and values are the formats.
+
         Returns
         -------
             A dictionary whose key is the name of the features and whose values

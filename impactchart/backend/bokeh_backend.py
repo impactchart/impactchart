@@ -22,13 +22,22 @@ except ImportError:
 
 
 class BokehBackend(Backend):
-    """A backend that plots interactive impact charts with bokeh."""
 
     def __init__(self):
+        """
+        A backend that plots interactive impact charts with bokeh.
+
+        This should be considered experimental until otherwise indicated.
+        """
         self._bokeh_plot = None
         self._ensemble_impact_label = None
 
-    def begin(self):
+    def begin(
+        self,
+        *,
+        feature: str,
+        feature_name: str,
+    ):
         self._bokeh_plot = figure()
 
         self._ensemble_impact_label = "Impact of Individual Models"

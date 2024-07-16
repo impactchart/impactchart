@@ -18,6 +18,23 @@ class MatplotlibBackend(Backend):
         x_formatter_default: Optional[str] = None,
         x_formatters: Optional[Dict[str, str]] = None,
     ):
+        """
+        A backend class that used matplotlib to generate impact charts.
+
+        Parameters
+        ----------
+        plot_kwargs
+            Additional keyword args for matplotlib
+        subplots_kwargs
+            Additional kwargs for `plt.subplots` call to create the subplots.
+        y_formatter
+            How to format the y values. Can be one of the following: 'comma', 'percentage', 'dollar'.
+        x_formatter_default:
+            How to format the x axis unless uverridden for a particular feature by `x_formatters`.
+            Same allowed values as `y_formatter`.
+        x_formatters:
+            A dictionary of how to format the x axis values. Keys are the features and values are the formats.
+        """
         super().__init__()
 
         self._plot_kwargs = plot_kwargs or {}
@@ -56,7 +73,12 @@ class MatplotlibBackend(Backend):
         else:
             return cls._formatter_for_arg_value[formatter]
 
-    def begin(self):
+    def begin(
+        self,
+        *,
+        feature: str,
+        feature_name: str,
+    ):
         self._fig, self._ax = plt.subplots(**self._subplots_kwargs)
 
         self._ensemble_impact_label = "Impact of Individual Models"
