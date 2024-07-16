@@ -623,7 +623,7 @@ class ImpactModel(ABC):
 
     @deprecated(
         version="0.6.0",
-        reason="Please use `charts` instead. The API is the same but an optional backend is supported."
+        reason="Please use `charts` instead. The API is the same but an optional backend is supported.",
     )
     def impact_charts(
         self,
