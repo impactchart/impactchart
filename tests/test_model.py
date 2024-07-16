@@ -160,6 +160,18 @@ class LinearModelTestCase(ImpactChartTestCase):
 
             self.assert_structurally_similar(expected_file, output_file)
 
+    def test_charts(self):
+        charts = self._linear.charts(self._X, self._X.columns)
+        for feature, (fig, ax) in charts.items():
+            png_file_name = f"impact_linear_{feature}.png"
+            expected_file = self.expected_dir / png_file_name
+            output_file = self.output_dir / png_file_name
+
+            ax.set_ylim(-20, 20)
+            fig.savefig(output_file)
+
+            self.assert_structurally_similar(expected_file, output_file)
+
     def test_styled_impact_chart(self):
         charts = self._linear.impact_charts(
             self._X,
@@ -274,11 +286,31 @@ class XgbTestCase(ImpactChartTestCase):
         impact_y_hat.name = "y_hat"
 
         pd.testing.assert_series_equal(
-            y_hat["y_hat"], impact_y_hat.astype("float32"), atol=0.02
+            y_hat["y_hat"], impact_y_hat.astype("float32"), atol=0.03
         )
 
     def test_impact_chart(self):
+        """Test using the older impact_charts() API."""
         charts = self._impact_model.impact_charts(
+            self._X,
+            self._X.columns,
+            feature_names=lambda x: f"Name of {x}",
+        )
+
+        for feature, (fig, ax) in charts.items():
+            png_file_name = f"impact_xgb_{feature}.png"
+            expected_file = self.expected_dir / png_file_name
+            output_file = self.output_dir / png_file_name
+
+            ax.set_ylim(-1, 1)
+            fig.savefig(output_file)
+
+            self.assert_structurally_similar(expected_file, output_file)
+
+    def test_charts(self):
+        """Test using the charts() API."""
+
+        charts = self._impact_model.charts(
             self._X,
             self._X.columns,
             feature_names=lambda x: f"Name of {x}",

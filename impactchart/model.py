@@ -6,8 +6,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
-import textwrap
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -20,6 +18,11 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.neighbors import KNeighborsRegressor
 from xgboost import XGBRegressor
+
+from impactchart.backend import Backend
+from impactchart.backend.matplotlib import MatplotlibBackend
+
+from deprecated import deprecated
 
 
 class ImpactModel(ABC):
@@ -489,6 +492,110 @@ class ImpactModel(ABC):
 
         return f"({msg})"
 
+    def charts(
+        self,
+        X: pd.DataFrame,
+        features: Optional[Iterable[str]] = None,
+        *,
+        marker_size: float = 4.0,
+        color: str = "darkgreen",
+        ensemble_marker_size: float = 2.0,
+        ensemble_color: str = "lightgray",
+        feature_names: Optional[Callable[[str], str] | Mapping[str, str]] = None,
+        y_name: Optional[str] = None,
+        subtitle: Optional[str] = None,
+        backend: Optional[Backend] = None,
+    ) -> Dict[str, Any]:
+        """
+        Plot a series of impact charts, one for each feature.
+
+        Parameters
+        ----------
+        X
+            The features
+        features
+            The features to plot charts for.
+        feature_names
+            A map or callable that provides a friendly human-readable name for each feature.
+        marker_size
+            The size of markers for mean impacts,
+        ensemble_marker_size
+            The size of markers for impacts for individual members of the ensemble of models,
+        color
+            The color of markers for mean impacts,
+        ensemble_color
+            The color of markers for impacts for individual members of the ensemble of models,
+        y_name
+            The name of the target for the impact chart.
+        subtitle
+            An optional subtitle for the impact chart
+        backend
+            An optional backend. If not provided, a matplotlib backend is used.
+
+        Returns
+        -------
+            A map from feature to a backend-specific representation of the impact chart that
+            can be used to add further styling and display and/or save the chart.
+        """
+        backend = MatplotlibBackend() if backend is None else backend
+
+        df_impact = self.impact(X)
+
+        if features is None:
+            features = X.columns
+
+        features = list(features)
+
+        # We want to scale the y axis of all of the charts the same,
+        # based on the global min and max impact, so we can easily
+        # compare them visually.
+        min_impact = df_impact[features].min(axis="columns").min(axis="rows")
+        max_impact = df_impact[features].max(axis="columns").max(axis="rows")
+
+        impact_span = max_impact - min_impact
+
+        max_impact = max_impact + 0.05 * impact_span
+        min_impact = min_impact - 0.05 * impact_span
+
+        impacts = {}
+
+        if feature_names is None:
+            # We got not mapping or function, so just use the feature name.
+            def feature_name_func(f):
+                return f
+
+        elif callable(feature_names):
+            # We got a callable
+            feature_name_func = feature_names
+        else:
+            # Expect it to be a map.
+            def feature_name_func(f):
+                return feature_names[f]
+
+        for feature in features:
+            feature_name = feature_name_func(feature)
+
+            if self._plot_id is not None:
+                plot_id = self._plot_id_string(feature, len(X.index))
+
+            impacts[feature] = backend.plot(
+                X,
+                df_impact,
+                feature,
+                feature_name=feature_name,
+                min_impact=min_impact,
+                max_impact=max_impact,
+                marker_size=marker_size,
+                ensemble_marker_size=ensemble_marker_size,
+                color=color,
+                ensemble_color=ensemble_color,
+                y_name=y_name,
+                subtitle=subtitle,
+                plot_id=plot_id,
+            )
+
+        return impacts
+
     _dollar_formatter = FuncFormatter(
         lambda d, pos: f"\\${d:,.0f}" if d >= 0 else f"(\\${-d:,.0f})"
     )
@@ -514,6 +621,10 @@ class ImpactModel(ABC):
         else:
             return cls._formatter_for_arg_value[formatter]
 
+    @deprecated(
+        version="0.6.0",
+        reason="Please use `charts` instead. The API is the same but an optional backend is supported.",
+    )
     def impact_charts(
         self,
         X: pd.DataFrame,
@@ -567,146 +678,30 @@ class ImpactModel(ABC):
             Same allowed values as `y_formatter`.
         x_formatters:
             A dictionary of how to format the x axis values. Keys are the features and values are the formats.
+
         Returns
         -------
             A dictionary whose key is the name of the features and whose values
             are tuples of `fiq` and `ax` for the plot for that feature.
         """
-        if features is None:
-            features = X.columns
-
-        if plot_kwargs is None:
-            plot_kwargs = {}
-
-        if subplots_kwargs is None:
-            subplots_kwargs = {}
-
-        df_impact = self.impact(X)
-
-        # We want to scale the y axis of all of the charts the same,
-        # based on the global min and max impact, so we can easily
-        # compare them visually.
-        max_impact = df_impact[features].max(axis="columns").max(axis="rows")
-        min_impact = df_impact[features].min(axis="columns").min(axis="rows")
-
-        impact_span = max_impact - min_impact
-
-        max_impact = max_impact + 0.05 * impact_span
-        min_impact = min_impact - 0.05 * impact_span
-
-        impacts = {}
-
-        features = list(features)
-
-        if feature_names is None:
-            # We got not mapping or function, so just use the feature name.
-            def feature_name_func(f):
-                return f
-
-        elif callable(feature_names):
-            # We got a callable
-            feature_name_func = feature_names
-        else:
-            # Expect it to be a map.
-            def feature_name_func(f):
-                return feature_names[f]
-
-        for feature in features:
-            # Only label the first series with ensemble
-            # impact so the legend stays just two entries.
-            ensemble_impact_label = "Impact of Individual Models"
-
-            feature_name = feature_name_func(feature)
-
-            fig, ax = plt.subplots(**subplots_kwargs)
-
-            def _plot_for_ensemble_member(df_group):
-                nonlocal plot_kwargs, ensemble_impact_label
-
-                plot_x = X[feature]
-                plot_y = df_group[feature]
-
-                ax.plot(
-                    plot_x,
-                    plot_y,
-                    ".",
-                    markersize=ensemble_markersize,
-                    color=ensemble_color,
-                    label=ensemble_impact_label,
-                    **plot_kwargs,
-                )
-                plot_kwargs = {}
-                ensemble_impact_label = None
-
-            df_impact.groupby("estimator")[["X_index", feature]].apply(
-                _plot_for_ensemble_member
-            )
-
-            mean_impact = df_impact.groupby("X_index")[feature].mean()
-
-            ax.plot(
-                X[feature],
-                mean_impact,
-                ".",
-                markersize=markersize,
-                color=color,
-                label="Mean Impact",
-            )
-
-            # Do some basic labels and styling.
-            ax.set_ylim(min_impact, max_impact)
-
-            if y_name is not None:
-                if subtitle is not None:
-                    title = f"Impact of {feature_name} on {y_name}\n{subtitle}"
-                else:
-                    title = f"Impact of {feature_name} on {y_name}"
-                ax.set_ylabel(f"Impact on {y_name}")
-            else:
-                if subtitle is not None:
-                    title = f"Impact of {feature_name} {subtitle}"
-                else:
-                    title = f"Impact of {feature_name}"
-                ax.set_ylabel("Impact")
-
-            ax.set_title(textwrap.fill(title, width=80))
-            ax.set_xlabel(feature_name)
-            ax.grid()
-
-            for handle in ax.legend().legend_handles:
-                handle._sizes = [25]
-
-            # Format the axes.
-            y_axis_formatter = self._axis_formatter(y_formatter)
-            if y_axis_formatter is not None:
-                ax.yaxis.set_major_formatter(y_axis_formatter)
-            if x_formatters is not None and feature in x_formatters:
-                x_formatter = x_formatters[feature]
-            else:
-                x_formatter = x_formatter_default
-            x_axis_formatter = self._axis_formatter(x_formatter)
-            if x_axis_formatter is not None:
-                ax.xaxis.set_major_formatter(x_axis_formatter)
-
-            if self._plot_id is not None:
-                plot_id = self._plot_id_string(feature, len(X.index))
-                ax.text(
-                    0.99,
-                    0.02,
-                    plot_id,
-                    fontsize=8,
-                    backgroundcolor="white",
-                    horizontalalignment="right",
-                    verticalalignment="bottom",
-                    transform=ax.transAxes,
-                )
-
-            impacts[feature] = (
-                fig,
-                ax,
-            )
-
-        return impacts
+        return self.charts(
+            X,
+            features,
+            marker_size=markersize,
+            color=color,
+            ensemble_marker_size=ensemble_markersize,
+            ensemble_color=ensemble_color,
+            feature_names=feature_names,
+            y_name=y_name,
+            subtitle=subtitle,
+            backend=MatplotlibBackend(
+                plot_kwargs=plot_kwargs,
+                subplots_kwargs=subplots_kwargs,
+                y_formatter=y_formatter,
+                x_formatters=x_formatters,
+                x_formatter_default=x_formatter_default,
+            ),
+        )
 
     def impact_chart(
         self,
