@@ -24,6 +24,9 @@ jobs:
         shell: bash
     runs-on: ${{ matrix.os }}
     steps:
+      - if: matrix.os == 'macos-latest'
+        name: macos install libs
+        run: brew install libomp
       - name: Check out repository
         uses: actions/checkout@v4
       - name: Set up python
