@@ -28,7 +28,7 @@ jobs:
         name: macos install libs
         run: brew install libomp
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up python
         id: setup-python
         uses: actions/setup-python@v5
